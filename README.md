@@ -4,4 +4,4 @@ This repository contains my solutions for assignments from Stanford's [EE104: In
 
 ### Homework Solutions
 
-- [Homework 1](lhnguyen-vn/github.io/IntroToML/html/hw1.html)
+- [Homework 1](lhnguyen-vn.github.io/IntroToML/html/hw1.html)
