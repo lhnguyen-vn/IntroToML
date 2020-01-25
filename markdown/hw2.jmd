@@ -1,0 +1,207 @@
+---
+title: Homework 2
+author: Long Nguyen
+---
+
+## 1. Polynomial fit
+
+#### (a) Least square model with embeddings ϕ(u) = u, ψ(v) = v
+
+```julia; echo=false
+include("readclassjson.jl")
+norm(x) = float(sqrt(sum(x.^2)))
+RMSE(ŷ, y) = norm(ŷ - y) / sqrt(length(y));
+function find_theta(X, y)
+    θ = X \ y # matrix least square is implemented in Julia
+    ŷ = X * θ
+    return θ, RMSE(ŷ, y)
+end;
+```
+
+```julia; hold=true
+import Random
+
+"""
+    partition(num_data, ratio=0.8)
+
+Given the number of data points and a train-test ratio, return randomized indices
+for the train and test sets.
+"""
+function partition(num_data, ratio=0.8)
+    rand_indices = Random.randperm(num_data)
+    part_index = floor(Int, num_data * ratio)
+    train_indices = rand_indices[1:part_index]
+    test_indices = rand_indices[part_index+1:end]
+    return train_indices, test_indices
+end
+
+data = readclassjson("./data/polyfit.json")
+u, v = data["u"], data["v"]
+train_indices, test_indices = partition(size(u, 1))
+train_u, test_u = u[train_indices], u[test_indices]
+train_v, test_v = v[train_indices], v[test_indices]
+
+θ, train_error = find_theta(train_u, train_v)
+test_error = RMSE(test_u * θ, test_v)
+
+@show train_error
+@show test_error;
+```
+
+#### (b) Polynomial embedding ϕ(u) = (1, u, u²,..., uᵈ⁻¹)
+
+```julia
+"""
+    polynomial_features(u, d)
+
+Return a polynomial embedding of degree `d - 1` of the `n`-vector `u` as a `n x d`
+matrix, where each column is the polynomial mapping of the corresponding scalar
+in `u`.
+"""
+function polynomial_features(u, d)
+    embedded_u = Array{eltype(u)}(undef, length(u), d)
+    for degree in 1:d
+        embedded_u[:, degree] = u.^(degree - 1) # Julia is column major
+    end
+    return embedded_u
+end;
+```
+
+#### (c) Least square model with polynomial embedding
+
+```julia
+using Plots
+
+model(x) = 10 * sin.(1.9 * 3.14 * x) # Test polynomial embedding for sin model
+
+function test_polyfit(u, v, max_degree=20)
+    dataset_rmses = Array{Float64}(undef, max_degree)
+    model_rmses = Array{Float64}(undef, max_degree)
+
+    for d in 1:max_degree
+        embedded_u = polynomial_features(u, d)
+
+        θ, dataset_error = find_theta(embedded_u, v)
+        dataset_rmses[d] = dataset_error
+
+        model_error = RMSE(embedded_u * θ, model(u))
+        model_rmses[d] = model_error
+
+        println("Polynomial embedding of degree $d:")
+        println("\tRMSE for dataset: $dataset_error")
+        println("\tRMSE for model: $model_error")
+    end
+    return dataset_rmses, model_rmses
+end
+
+dataset_rmses, model_rmses = test_polyfit(u, v)
+
+plot(1:20, [dataset_rmses model_rmses],
+     label=["Dataset RMSE" "Model RMSE"], xticks=1:20,
+     xlabel="Polynomial fitting degree", ylabel="RMSE")
+```
+
+From the graph comparing the degree of the polynomial fitting and the resulting
+root-mean-squared error, embedding our input with degree 4 achieves the best fit.
+We will demonstrate this in the following graph:
+
+```julia
+xRange = 0:0.01:1
+degrees = [3, 4, 7]
+polyfit_labels = ["Underfitting", "Best fit", "Overfitting"]
+polyfit_colors = [:yellow, :green, :red]
+
+scatter(u, v, label="Dataset")
+plot!(xRange, model(xRange), label="True model", c=:blue)
+for i in 1:3
+    d = degrees[i]
+    embedded_u = polynomial_features(u, d)
+    θ, error = find_theta(embedded_u, v)
+
+    y = polynomial_features(xRange, d) * θ
+    plot!(xRange, y, label=polyfit_labels[i], c=polyfit_colors[i])
+end
+plot!(xlabel="u", ylabel="v")
+```
+
+#### (d) Cross validation
+
+```julia
+using Statistics
+
+"""
+    cross_validation(X, y, k)
+
+Given the `n x d` matrix `X`, the label vector `y`, and the `k` number of folds,
+return the average and standard deviation of the RMSE by cross validation.
+"""
+function cross_validation(X, y, k)
+    @assert k > 1 "There must be more than one fold."
+
+    num_rows = size(X, 1)
+    random_indices = Random.randperm(num_rows) # randomize dataset
+    fold_size = Int(floor(num_rows / k)) # get fold size
+    fold_indices = Iterators.partition(random_indices[1:k*fold_size], fold_size)
+    if num_rows % k != 0
+        append!(fold_indices[end], random_indices[k*fold_size+1:end])
+    end
+
+    RMSEs = Float64[]
+    for fold in fold_indices
+        # Set up train set and test set
+        train_indices = trues(num_rows)
+        train_indices[fold] .= false
+        test_X, test_y = X[fold, :], y[fold]
+        train_X, train_y = X[train_indices, :], y[train_indices]
+
+        θ, error = find_theta(train_X, train_y)
+        push!(RMSEs, error)
+    end
+    return mean(RMSEs), std(RMSEs, corrected=false)
+end
+
+function cross_validate_polyfit(u, v, k=5, max_degree=20)
+    RMSEs = Float64[]
+    RMSE_stds = Float64[]
+
+    # Loop through each degree of polynomial embedding
+    for d in 1:max_degree
+        embedded_u = polynomial_features(u, d)
+        RMSE, RMSE_std = cross_validation(embedded_u, v, k)
+        push!(RMSEs, RMSE)
+        push!(RMSE_stds, RMSE_std)
+    end
+
+    return RMSEs, RMSE_stds
+end
+
+RMSEs, RMSE_stds = cross_validate_polyfit(u, v)
+plot(1:20, RMSEs, label="",
+     xticks=1:20, yerror=RMSE_stds,
+     xlabel="Polynomial embedding degree",
+     ylabel="Cross-validated RMSE")
+```
+
+## 2. Introduction to Feature Engineering
+
+#### (a) Embedding Design
+
+1. In figure 2a, the decision boundary line could be an elliptical centered at
+the origin. Therefore, we could embed ``x = u^2`` and ``y = v^2``, then find an
+affine predictor between ``x`` and ``y``.
+2. In figure 2b, a possible candidate for the solution is a logarithm curve. We
+should embed ``x = u`` and ``y = exp(v)`` to find an affine predictor.
+3. Figure 3b hints at a polynomial curve, and so we could experiment with
+polynomial fitting for ``u`` to find the best fit.
+
+#### (b) Categorical Embeddings
+
+1. Type of transportation is nominal data, so one-hot is an obvious solution.
+2. Service rating is ordinal, but does not provide accurate ratio information.
+An alternative solution is to embed the rank as categorical. For example, we
+provide four categories: at least poor, at least average, at least good, and
+at least excellent. An average will then be encoded as ``[1, 1, 0, 0]``.
+3. Sex only has two options, so Boolean embedding is an obvious choice. The more
+complicated gender spectrum, however, is much harder to quantify.
+
+#### (c)

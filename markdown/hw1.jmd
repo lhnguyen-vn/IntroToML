@@ -1,0 +1,337 @@
+---
+title: Homework 1
+author: Long Nguyen
+---
+
+## 1. Empirical Risk Minimization
+
+#### (a) Root-Mean-Square Error Function
+
+In this section, I detail a relatively straightforward function to compute the
+root-mean-squared error (RMSE) between a predicted value and the observed one.
+The `norm` function, available through `Julia`'s standard library `Statistics`,
+computes the Euclidean distance between two vectors.
+
+```julia
+using Statistics: norm
+
+"""
+    RMSE(ŷ, y)
+
+Compute the root-mean-squared error between `ŷ` and `y`.
+"""
+RMSE(ŷ, y) = norm(ŷ - y) / sqrt(length(y))
+;
+```
+
+#### (b) RMSE Evaluation
+
+Now that `RMSE` is defined, we can go ahead and try it out on a dataset. In the
+example below, we use the data from `risk.json`, and compute the RMSE for two
+different predictors, ``g_{θA}(x)=10x+98`` and ``g_{θB}(x) = 80x+85``.
+
+```julia
+include("./utils/readclassjson.jl") # provide simple function to parse json file
+
+# Read in data
+data = readclassjson("./data/risk.json")
+X, y = data["X"], data["y"]
+
+# Define predictors
+gθA(x) = 10 * x + 98
+gθB(x) = 80 * x + 55
+
+# Evaluate predictors using dot broadcasting
+ŷA = gθA.(X)
+ŷB = gθB.(X)
+
+# Show RMSE
+@show RMSE(ŷA, y)
+@show RMSE(ŷB, y)
+;
+```
+
+#### (c) Linear Predictor
+
+![Example Linear Predictor](../images/HW1-1C.png)
+
+In the above graph, the linear predictor is obviously not great. In order to
+improve the accuracy, the y-intercept needs to be much higher and the slop needs
+to be lower.
+
+## 2. Nearest Neighbor Predictors
+
+#### (a) Simple Nearest Neighbor
+
+This section shows the code for a simple nearest neighbor predictor. It searches
+for a data point closest to our input, and returns the corresponding `y` of
+that point as our predicted output.
+
+```julia
+"""
+    nn_predictor(x, X, y)
+
+Given `x`, find the nearest value to `x` in `X` and return the corresponding
+`y` value.
+"""
+function nn_predictor(x, X, y)
+    num_data = size(X, 1) # size of X along the first dimension
+    ŷ = nothing # so that ŷ is accessible after for block
+    min_distance = Inf
+
+    # Loop through X, find the nearest neighbor
+    for i in 1:num_data
+        distance = norm(x - X[i])
+        if distance < min_distance
+            min_distance = distance # type stable!
+            ŷ = y[i]
+        end
+    end
+
+    return ŷ
+end
+;
+```
+
+An important remark: we needs to initiate `ŷ` in order to access its value
+after the `for` block. Because of `Julia`'s scoping rules, the `for` block
+could grab `ŷ` from the outer function, but without declaring `ŷ` first, the
+variable remains local and will not be available to us after the block.
+
+#### (c) Nearest Neighbor In Action
+
+We will use our brand new nearest neighbor predictor on a dataset to see it in
+action! The data comes from `nearest_neighbor_c.json`, and a plot is also made
+to help us visualize the effectiveness!
+
+```julia
+using Plots
+
+# Load data set
+data = readclassjson("./data/nearest_neighbor_c.json")
+X, y = data["X"], data["y"]
+
+# Use nearest neighbor on the dataset itself
+ŷ = [nn_predictor(x, X, y ) for x in X]
+@show RMSE(ŷ, y) # should be 0
+
+# Plotting
+xrange = 0:0.01:5
+ŷplot = [nn_predictor(x, X, y) for x in xrange]
+plot(xrange, ŷplot, label="NN Predictions")
+scatter!(X, y, c=:blue, label="Dataset", legend=:bottomright)
+```
+
+Since in this example, we use the dataset itself as inputs for nearest neighbor,
+the predicted `ŷ` should be the same as `y` in the dataset, and the RMSE
+must be `0`!
+
+Taking a look at our plot, the predictor results in a step-wise function, where
+at the middle mark between two `x`'s, the predicter value will jump from one
+`y` to another.
+
+#### (d) *k* Nearest Neighbor Predictor
+
+This section is not the infamous k-nearest-neighbor algorithm for supervised
+learning, but the implementation is not too much different! After identifying
+the k nearest neighbors (leveraging the convenient `SortedDict` data
+structure), instead of the majority vote for classification, our predictor
+returns the mean of its input's neighbors.
+
+```julia
+using DataStructures: SortedDict
+using Statistics: mean
+
+"""
+    knn_predictor(x, X, y, k)
+
+Given `x`, find `k` nearest neighbors to `x` in `X` and return the average of
+the `k` corresponding `y`'s.
+"""
+function knn_predictor(x, X, y, k)
+    num_data = size(X, 1)
+    @assert k < num_data "Dataset has only $num_data data points"
+    sd = SortedDict{Float64, Float64}() # distance will be sorted in Dict
+
+    # Loop through X, add (distance, y) pairs to sd
+    for i in 1:num_data
+        distance = norm(x - X[i])
+        sd[distance] = y[i]
+    end
+
+    kNN = collect(keys(sd))[1:k] # the k closest distance to x
+    ŷ = mean(sd[nn] for nn in kNN)
+
+    return ŷ
+end
+;
+```
+
+#### (e) *k* Nearest Neighbor In Action
+
+We now use k-nearest-neighbor predictor on the same dataset as before. The
+root-mean-squared error would not be ``0`` this time, since we are taking the
+average of the two nearest points to our input in the dataset.
+
+```julia
+ŷ = [knn_predictor(x, X, y, 2) for x in X]
+@show RMSE(ŷ, y) # should be positive
+
+xrange = 0:0.01:5
+ŷplot = [knn_predictor(x, X, y, 2) for x in xrange]
+plot(xrange, ŷplot, label="NN Predictions")
+scatter!(X, y, c=:blue, label="Data Set", legend=:bottomright)
+```
+
+## 3. Wildfire predictor
+
+In this section, we consider a more complex dataset. In `wildfire_data.json`,
+our inputs now have seven numeric features, and the output is the burned area of
+the forest on a `log` scale.
+
+#### (a) Matrix Least Squares
+
+We first define a convenient matrix least squares function: for a feature matrix
+`X` and a label vector `y`, we compute the `θ` that minimizes the loss between
+`X * θ` and `y`.
+
+```julia
+"""
+    find_theta(X, y)
+
+Find the θ to minimize the root-mean-squared error between ŷ = X * θ and y.
+Return the θ and the error.
+"""
+function find_theta(X, y)
+    θ = X \ y # matrix least square is implemented in Julia as left division
+    ŷ = X * θ
+    return θ, ŷ, RMSE(ŷ, y)
+end
+;
+```
+
+#### (b) Wildfire Predictor Using Least Square Regression
+
+We now use our newly-defined `find_theta` to perform regression between each of
+the input features and the labeled burned area vector.
+
+```julia; hold=true
+# Load data
+data = readclassjson("./data/wildfire_data.json")
+X, y = data["U"], data["v"]
+
+function find_best_feature(X, y)
+    features = ["position x", "position y", "month", "FFMC", "temp", "wind",
+                "rain"]
+    best_θ = nothing
+    min_error = Inf
+
+    # Loop through all features
+    for i in 1:size(X, 2)
+        feature = X[:, i]
+
+        # We add a constant vector to the feature to perform affine regression
+        # in the form X * θ + b = y, or [X | b'] * θ = y.
+        affine_x = hcat(feature, ones(length(feature)))
+        θ, _, error = find_theta(affine_x, y) # _ denotes a throwaway variable
+
+        # Report θ and error
+        println("Affine Regression on Feature $(features[i]):")
+        println("\tθ = $θ")
+        println("\terror = $error")
+
+        # Find the best single feature predictor
+        if error < min_error
+            min_error = error
+            best_θ = θ
+        end
+    end
+
+    return best_θ
+end
+
+best_θ = find_best_feature(X, y);
+```
+
+Important remark: we don't have to wrap our codes in the `find_best_feature`
+function, but it is recommended to do so since it is hard for `Julia`'s compiler
+to optimize the global scope.
+
+From the reported RMSE, `month` seems to be our best predictor for wildfire, but
+not by a long shot. The following section will provide a nice graph to visualize
+how well our affine regression predictor performs.
+
+#### (c) Month versus Wildfire
+
+```julia
+xrange = 1:0.1:12
+scatter(X[:, 3], y, label="Dataset",
+        xlabel="Month", ylabel="Wildfire Area (log scale)")
+plot!(xrange, xrange * best_θ[1] .+ best_θ[2],
+      label="Affine Regression", c=:blue)
+```
+
+#### (d) Affine Regression with All Features
+
+We incorporate all features of our input this time in the hope that regression
+would perform better. The plot compares the predicted output and the dataset.
+
+```julia
+affine_X = hcat(X, ones(size(X, 1)))
+θ, ŷ, error = find_theta(affine_X, y)
+@show θ
+@show error
+
+equal_line = 0:0.1:2
+scatter(y, ŷ, label="",
+        xlabel="Observed Wildfire Area (log scale)",
+        ylabel="Predicted Wildfire Area (log scale)")
+plot!(equal_line, equal_line, label="", c=:blue)
+```
+
+## 4. Embedding
+
+We explore an introductory look at data embedding in this section. Specifically,
+piecewise linear function ``max(u, 0)`` and ``min(u, 0)``. We will look further
+into feature engineering later on during the course.
+
+#### (a) Embedding Functions
+
+```julia
+embed1(u) = u
+embed2(u) = max(u, 0)
+embed3(u) = min(u, 0);
+```
+
+#### (b) Embedding Strategies
+
+We explore four different strategies to embed our input from the dataset
+`embeddings_data.json`.
+
+1. [**1** | `u`]
+2. [**1** | `u` | `max(u, 0)`]
+3. [**1** | `u` | `max(u, 0)` | `min(u, 0)`]
+4. [**1** | `max(u, 0)` | `min(u, 0)`]]
+
+```julia
+# Load up data
+data = readclassjson("./data/embeddings_data.json")
+U, v = data["U"], data["v"]
+num_data = size(U, 1)
+
+X1 = hcat(ones(num_data), U)
+X2 = hcat(ones(num_data), U, embed2.(U))
+X3 = hcat(ones(num_data), U, embed2.(U), embed3.(U))
+X4 = hcat(ones(num_data), embed2.(U), embed3.(U))
+Xs = [X1, X2, X3, X4]
+labels = ["(1, ϕ₁(u))",
+          "(1, ϕ₁(u), ϕ₂(u))",
+          "(1, ϕ₁(u), ϕ₂(u), ϕ₃(u))",
+          "(1, ϕ₂(u), ϕ₃(u))"]
+
+for i in 1:4
+    θ, v̂, error = find_theta(X[i], v)
+    println("Root-mean-squared error for embedding X = $(labels[i])")
+    println("\terror = $error")
+end
+```
