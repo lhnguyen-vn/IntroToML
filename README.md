@@ -5,6 +5,7 @@ This repository contains my solutions for assignments from Stanford's [EE104: In
 ### Homework Solutions
 
 - [Homework 1](https://lhnguyen-vn.github.io/IntroToML/html/hw1.html)
+- [Homework 2](https://lhnguyen-vn.github.io/IntroToML/html/hw2.html)
 
 ### Data 
 
@@ -15,4 +16,5 @@ Datasets used for the above solutions are provided in the course's page. They ar
  - [`wildfire_data.json`](https://lhnguyen-vn.github.io/IntroToML/data/wildfire_data.json)
  - [`polyfit.json`](https://lhnguyen-vn.github.io/IntroToML/data/polyfit.json)
  - [`embeddings_data.json`](https://lhnguyen-vn.github.io/IntroToML/data/embeddings_data.json)
+ - [`features.json`](https://lhnguyen-vn.github.io/IntroToML/data/features.json)
 
