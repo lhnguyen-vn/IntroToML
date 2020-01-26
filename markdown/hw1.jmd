@@ -7,7 +7,7 @@ author: Long Nguyen
 
 #### (a) Root-Mean-Square Error Function
 
-In this section, I detail a relatively straightforward function to compute the
+In this section, we detail a relatively straightforward function to compute the
 root-mean-squared error (RMSE) between a predicted value and the observed one.
 The `norm` function, available through `Julia`'s standard library `Statistics`,
 computes the Euclidean distance between two vectors.
@@ -20,8 +20,7 @@ using Statistics: norm
 
 Compute the root-mean-squared error between `ŷ` and `y`.
 """
-RMSE(ŷ, y) = norm(ŷ - y) / sqrt(length(y))
-;
+RMSE(ŷ, y) = norm(ŷ - y) / sqrt(length(y));
 ```
 
 #### (b) RMSE Evaluation
@@ -47,17 +46,23 @@ ŷB = gθB.(X)
 
 # Show RMSE
 @show RMSE(ŷA, y)
-@show RMSE(ŷB, y)
-;
+@show RMSE(ŷB, y);
 ```
 
 #### (c) Linear Predictor
 
+A linear predictor is a function that takes in an input and performs linear
+combination on its features to compute the output. In two-dimensional space,
+such as the example provided below, the predictor can be visualized as a line.
+
 ![Example Linear Predictor](../images/HW1-1C.png)
 
-In the above graph, the linear predictor is obviously not great. In order to
-improve the accuracy, the y-intercept needs to be much higher and the slop needs
-to be lower.
+The linear predictor in this case is not great: we wish to approximate how the
+input relates to the output as best as we can. This process is called regression
+and in two-dimensional space produces a line of best fit. In order to improve
+the predictor in the graph, we would need to increase the y-intercept and lower
+the slope. One of the most popular and simple method for regression is least
+squares, we will return to this point in Section 3.
 
 ## 2. Nearest Neighbor Predictors
 
@@ -65,7 +70,10 @@ to be lower.
 
 This section shows the code for a simple nearest neighbor predictor. It searches
 for a data point closest to our input, and returns the corresponding `y` of
-that point as our predicted output.
+that point as our predicted output. The rationale is that inputs close to each
+other should produce relatively similar outputs. While this is not always the
+case in more complex situations, it proves to be useful in classification
+problems.
 
 ```julia
 """
@@ -83,14 +91,13 @@ function nn_predictor(x, X, y)
     for i in 1:num_data
         distance = norm(x - X[i])
         if distance < min_distance
-            min_distance = distance # type stable!
+            min_distance = distance
             ŷ = y[i]
         end
     end
 
     return ŷ
-end
-;
+end;
 ```
 
 An important remark: we needs to initiate `ŷ` in order to access its value
@@ -101,8 +108,8 @@ variable remains local and will not be available to us after the block.
 #### (c) Nearest Neighbor In Action
 
 We will use our brand new nearest neighbor predictor on a dataset to see it in
-action! The data comes from `nearest_neighbor_c.json`, and a plot is also made
-to help us visualize the effectiveness!
+action. The data comes from `nearest_neighbor_c.json`, and we will also graph
+our predictions to help us visualize the effectiveness of the predictor.
 
 ```julia
 using Plots
@@ -124,7 +131,7 @@ scatter!(X, y, c=:blue, label="Dataset", legend=:bottomright)
 
 Since in this example, we use the dataset itself as inputs for nearest neighbor,
 the predicted `ŷ` should be the same as `y` in the dataset, and the RMSE
-must be `0`!
+must be `0`.
 
 Taking a look at our plot, the predictor results in a step-wise function, where
 at the middle mark between two `x`'s, the predicter value will jump from one
@@ -133,7 +140,7 @@ at the middle mark between two `x`'s, the predicter value will jump from one
 #### (d) *k* Nearest Neighbor Predictor
 
 This section is not the infamous k-nearest-neighbor algorithm for supervised
-learning, but the implementation is not too much different! After identifying
+learning, but the implementation is not too much different. After identifying
 the k nearest neighbors (leveraging the convenient `SortedDict` data
 structure), instead of the majority vote for classification, our predictor
 returns the mean of its input's neighbors.
@@ -163,8 +170,7 @@ function knn_predictor(x, X, y, k)
     ŷ = mean(sd[nn] for nn in kNN)
 
     return ŷ
-end
-;
+end;
 ```
 
 #### (e) *k* Nearest Neighbor In Action
@@ -187,7 +193,10 @@ scatter!(X, y, c=:blue, label="Data Set", legend=:bottomright)
 
 In this section, we consider a more complex dataset. In `wildfire_data.json`,
 our inputs now have seven numeric features, and the output is the burned area of
-the forest on a `log` scale.
+the forest on a `log` scale. We will use least squares regressions on each of
+the features, then all of them as a whole. More information on least-squares can
+be found in Boyd's and Vandenberghe's book *Introduction to Applied Linear
+Algebra*. `Julia` provides the least-squares with the left division operator.
 
 #### (a) Matrix Least Squares
 
@@ -206,8 +215,7 @@ function find_theta(X, y)
     θ = X \ y # matrix least square is implemented in Julia as left division
     ŷ = X * θ
     return θ, ŷ, RMSE(ŷ, y)
-end
-;
+end;
 ```
 
 #### (b) Wildfire Predictor Using Least Square Regression
@@ -255,7 +263,10 @@ best_θ = find_best_feature(X, y);
 
 Important remark: we don't have to wrap our codes in the `find_best_feature`
 function, but it is recommended to do so since it is hard for `Julia`'s compiler
-to optimize the global scope.
+to optimize the global scope. Another minor tip: we use `_` in `Julia` for
+throwaway variables, as seen in the `find_theta` step above. This is not just a
+convention, since denoting a variable with `_` effectively tells `Julia` you
+don't need its value and hence will not be able to after the fact.
 
 From the reported RMSE, `month` seems to be our best predictor for wildfire, but
 not by a long shot. The following section will provide a nice graph to visualize
@@ -291,7 +302,7 @@ plot!(equal_line, equal_line, label="", c=:blue)
 
 ## 4. Embedding
 
-We explore an introductory look at data embedding in this section. Specifically,
+We take an introductory look at data embedding in this section. Specifically,
 piecewise linear function ``max(u, 0)`` and ``min(u, 0)``. We will look further
 into feature engineering later on during the course.
 
