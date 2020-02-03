@@ -42,8 +42,10 @@ function split_dataset(x, y, ratio=0.8)
     test_indices = rand_indices[split_index+1:end]
 
     # Return datasets as named tuples
-    train_set = (input=x[train_indices], output=y[train_indices])
-    test_set = (input=x[test_indices], output=y[test_indices])
+    train_set = (input=x[train_indices, :],
+                 output=y[train_indices, :])
+    test_set = (input=x[test_indices, :],
+                output=y[test_indices, :])
     return train_set, test_set
 end
 
@@ -85,7 +87,7 @@ return a `n x degree` matrix, where each column is the polynomial mapping of
 each scalar in `x`.
 """
 function polynomial_features(x, degree)
-    embedded_x = Array{eltype(u)}(undef, length(x), degree)
+    embedded_x = Array{eltype(x)}(undef, length(x), degree)
     for d in 1:degree
         embedded_x[:, d] = x.^(d - 1) # Julia is column major
     end
@@ -311,8 +313,7 @@ end
 ```
 
 The RMSE is not the best, but it seems the third embedding strategy is our best
-bet. However, the RMSE is for log scale, so it might not be so bad if we unembed
-our predictions!
+bet.
 
 #### (d) Unembedding
 
@@ -391,4 +392,4 @@ growth_rate^2
 ```
 
 Our model is not so much different from Moore's Law! We also predict that the
-number of transistors would roughly double every two years. 
+number of transistors would roughly double every two years.

@@ -21,8 +21,10 @@ function split_dataset(x, y, ratio=0.8)
     test_indices = rand_indices[split_index+1:end]
 
     # Return datasets as named tuples
-    train_set = (input=x[train_indices], output=y[train_indices]
-    test_set = (input=x[test_indices], output=y[test_indices])
+    train_set = (input=x[train_indices, :],
+                 output=y[train_indices, :])
+    test_set = (input=x[test_indices, :],
+                output=y[test_indices, :])
     return train_set, test_set
 end
 

@@ -1,0 +1,383 @@
+---
+title: Homework 3
+author: Long Nguyen
+---
+
+## 1. Regularized Empirical Risk Minimization
+
+In this section, we learn about regularized empirical risk minimization. The
+rationale behind the method is to find predictors that perform well but are not
+so sensitive to changes in our independent variables. A natural solution is then
+to include also a loss function on our parameters in the regression problem.
+
+#### (a) Standardization
+
+Since we are interested in reducing our model's sensitivity, a good strategy is
+to standardize our inputs. Inputs of different scales have different weights on
+the output, and thus standardization aims to have all input features contribute
+relatively equally to the predictor function.
+
+#### (b) Z-Score
+
+Z-score is a useful concept from statistics to describe how far away the data
+point is from its mean. Z-scores are centered around 0, and their standard
+deviation is 1. Below we detail a function taking in a matrix `U` and returning
+a z-score matrix.
+
+```julia
+using Statistics: mean, std
+
+"""
+    zscore(U)
+
+Take in an input matrix with feature columns, return the standardized matrix,
+the means and the standard deviations of each feature.
+"""
+function zscore(U)
+    means = mean(U, dims=1)
+    stdevs = std(U, dims=1)
+    X = similar(U, Float64) # set up a matrix with the same dimension
+
+    # Loop through each feature
+    for i in 1:size(U, 2)
+        X[:, i] = (U[:, i] .- means[i]) / stdevs[i]
+    end
+
+    return X, means, stdevs
+end
+;
+```
+
+#### (c) Test On Dataset
+
+```julia; hold=true
+include("./utils/readclassjson.jl") # simple function to parse json data
+include("./utils/validation.jl") # validation utilities from homework 2
+include("./utils/regression.jl") # regression utilities from homework 1
+include("./utils/RMSE.jl") # RMSE from homework 1
+
+# Load dataset
+data = readclassjson("./data/RERM.json")
+U, v = data["U"], data["v"]
+
+# Embeddings
+ϕ(U) = hcat(ones(size(U, 1)), U)
+
+# Standardizing
+standard_U, _, _ = zscore(U)
+X = ϕ(standard_U)
+y, _, _ = zscore(v)
+
+# Split into train and test sets
+train_set, test_set = split_dataset(X, y)
+train_X, train_y = train_set.input, train_set.output
+test_X, test_y = test_set.input, test_set.output
+
+# Training
+θ, _, train_error = find_theta(train_X, train_y)
+@show θ
+@show train_error
+
+# Validation
+test_ŷ = test_X * θ
+test_error = RMSE(test_ŷ, test_y)
+@show test_error;
+```
+
+In the above example, our model performs quite well on both the train and the
+test set, which means it generalizes quite well. The regression step returns
+very small parameters, and so the model is not sensitive to the changes in the
+input.
+
+#### (d) Correlation Matrix
+
+```julia
+corr_matrix = transpose(standard_U) * standard_U / size(standard_U, 1)
+```
+
+By definition, the diagonal of the matrix should be ``1``, since a feature is
+directly correlated to itself. Most of the other correlation coefficients are
+close to ``0``, meaning our features are relatively independent. Feature 3 and 6
+, however, seems to have strong correlation, while feature 4 and 6 are somewhat
+inversely correlated.
+
+#### (e) Regularized Empirical Risk Minimization
+
+We introduce the regularized empirical risk minimization (RERM) strategy by
+adding the term ``r(θ)`` to our empirical risk function. As we minimize the loss
+function, we reduce both the objective loss and the sensitivity of our predictor
+, avoiding overfitting our data.
+
+#### (f) Ridge Regression
+
+Below, we define a ridge regression function with a specified regularization
+parameter. An interesting remark is that it is very straightforward to implement
+mathematical formula in `Julia`, since the code looks almost identical to math.
+
+```julia
+using LinearAlgebra
+
+"""
+    function find_theta_ridge(X, y, λ)
+
+Given the input `X`, the output `y`, and a regularization parameter `λ`, perform
+ridge regression and return the `θ∗`, `ŷ`, and the RMSE.
+"""
+function find_theta_ridge(X, y, λ, affine=false)
+    Xᵀ = transpose(X)
+
+    # If the regression is linear, then there is no adjustment to I below
+    # Else, if X has a constant feature, then make I[1, 1] into a 0.
+    adjustment = zeros(eltype(X), size(X, 2), size(X, 2))
+    affine && (adjustment[1, 1] = one(eltype(X)))
+    mod_I = I - adjustment
+
+    θ = (Xᵀ * X + λ * mod_I)^-1 * Xᵀ * y
+    ŷ = X * θ
+    error = RMSE(ŷ, y)
+    return θ, ŷ, error
+end
+;
+```
+
+#### (g) Polynomial Fitting with Ridge Regression
+
+We go back to the problem of polynomial fitting in homework 2, where with
+increasing degree of the polynomials, we risk overfitting our dataset and the
+predictor does not generalize well for the test set. We experiments with ridge
+regression and different ``λ``'s to see if we can avoid overfitting by reducing
+the sensitivity of our predictor.
+
+```julia
+using Plots
+using Random
+include("./utils/embeddings.jl") # polynomial features from homework 2
+
+# Reproducible result for randomly split dataset
+Random.seed!(0)
+
+# 20-degree polynomial features for standardized input
+poly_features = [polynomial_features(u, 20) for u in eachcol(standard_U)]
+poly_X = hcat(poly_features...)
+
+# Split into train and test sets (70-30)
+train_set, test_set = split_dataset(poly_X, y, 0.7)
+train_X, train_y = train_set.input, train_set.output
+test_X, test_y = test_set.input, test_set.output
+
+# Training with different λ
+logλ = -1:0.1:3
+λs = 10 .^ logλ
+train_errors = Float64[]
+test_errors = Float64[]
+θs = []
+
+function polyfit_test()
+    for λ in λs
+        θ, _, train_error = find_theta_ridge(train_X, train_y, λ)
+        push!(train_errors, train_error)
+        test_error = RMSE(test_X * θ, test_y)
+        push!(test_errors, test_error)
+    end
+end
+polyfit_test()
+
+# Plot train loss and test loss against choice of λ
+plot(logλ, [train_errors test_errors], label=["Train loss" "Test loss"],
+     xlabel="Regularization parameter (log scale)") |> display
+
+# Best factor
+best_λ = λs[argmin(test_errors)]
+@show best_λ;
+```
+
+From the graph, we could confirm that ridge regression does reduce sensitivity
+in our predictor and help generality. ``λ ≈ 79.4`` achieves the best loss on the
+test set, and also fits the train set very well.
+
+## 2. Bike Sharing
+
+In this section we will analyze a real dataset `bike.json`, where we are given 4
+input features (time, weather, position x and position y) and are tasked with
+finding a predictor for the bike sharing activity factor.
+
+```julia
+# Load dataset
+data = readclassjson("./data/bike.json")
+U, v = data["U"], data["v"]
+;
+```
+
+#### Features Analysis
+
+Let's first do some exploratory analysis on our input! I would like to see how
+many bike stations there are, but also how bike activity relates to the time of
+the day, the weather description, and to each station.
+
+```julia
+using StatsPlots
+
+# Plot bike activity against time of the day
+t_group(t) = [v[i] for i in 1:length(v) if t <= U[i, 1] < t + 1]
+t_groups = [t_group(t) for t in 0:23]
+scatter(U[:, 1], v, label="", xlabel="Time", ms=4, msw=1, msa=0.5,
+        ylabel="Activity factor", xticks=0:24)
+plot!(0.5:1:23.5, mean.(t_groups), lw=2, legend=:topleft,
+      label="Average activity", c=:red) |> display
+```
+
+It's not surprising that bike sharing activity is low late at night, but it does
+give us motivation to model before midnight to be relatively similar to after
+midnight, especially when they are really far apart (23 compared to 1, for
+example). To encapsulate the cyclic nature of the day, we might want to embed
+time with `cos` and `sin`.
+
+```julia
+# Plot bike activity against weather
+w_group(rating) = [v[i] for i in 1:length(v) if U[i, 2] == rating]
+w_groups = [w_group(-1) w_group(0) w_group(1)]
+violin(["Bad" "Average" "Good"], w_groups, legend=:topleft,
+       label="", c=[:red :yellow :blue],
+       xlabel="Weather", ylabel="Activity factor")
+boxplot!(["Bad" "Average" "Good"], w_groups, label="", alpha=0.8) |> display
+```
+
+Unsurprisingly, people really don't want to bike when the weather is bad. On the
+other end, bike activity is higher during good weather, even when compared to
+average weather.
+
+```julia; wrap=false
+# List the stations
+x_pos = U[:, 3]
+y_pos = U[:, 4]
+stations = unique(zip(x_pos, y_pos))
+@show stations
+
+# Plot bike activity by station
+s_group(position) = [v[i] for i in 1:length(v)
+                     if U[i, 3] == position[1] && U[i, 4] == position[2]]
+s_groups = [s_group(position) for position in stations]
+boxplot(s_groups, legend=:topleft,
+        label="", xlabel="Station", ylabel="Activity factor")
+```
+
+It makes sense to treat station as a categorical feature. However, we could also
+notice that lower position coordinates seem to correspond to higher activity
+factor. This could be because of population density within the city differs
+depending on where you are. Nevertheless, it might be a good idea to factor this
+into our predictor.
+
+Let's turn our attention to the output. What does the spread look like?
+
+```julia; hold=true
+histogram(v, bins=10, label="", xlabel="Output", ylabel="Frequency")
+```
+
+Judging from the histogram, the activity factor is a lot more likely to be low.
+This could be because of the inputs, but we might want to consider counteract
+such skewness with a `log` or a `nth root` embedding.
+
+#### Embeddings
+
+Based on our analysis, let's first embed time using trigonometry.
+
+```julia
+embed_time(T) = [sin.(T * 2π/24) cos.(T * 2π/24)];
+```
+
+Notice that this will also force on `time` feature to be between ``-1`` and
+``1``, just like `weather`. We might then want to do the same for position of
+the stations. Let's try standardizing both `position x` and `position y`.
+
+Another strategy is perhaps to create an extra feature for station positions,
+namely distance from the origin, since we did notice the closer a station is to
+the origin, the higher bike activity seems to be.
+
+#### Training
+
+Let's try out a straightforward regression first.
+
+```julia; wrap=false; hold=true
+# Split dataset
+train_set, test_set = split_dataset(U, v)
+train_U, train_v = train_set.input, train_set.output
+test_U, test_v = test_set.input, test_set.output
+
+# Training
+θ, train_v̂, train_error = find_theta(train_U, train_v)
+
+# Validate
+test_v̂ = test_U * θ
+test_error = RMSE(test_v̂, test_v)
+@show θ
+@show train_error
+@show test_error
+
+# Plot results
+pl1 = scatter(train_v̂, train_v, aspect_ratio=:equal,
+              title="Train Set", legend=:none,
+              xlabel="Predicted Activity", ylabel="Observed Activity")
+pl2 = scatter(test_v̂, test_v, aspect_ratio=:equal,
+              title="Test Set", legend=:none,
+              xlabel="Predicted Activity", ylabel="Observed Activity")
+plot(pl1, pl2)
+```
+
+The error might seem small, but considering the output has around the same
+standard deviation, we could definitely do better. Below, we apply multiple
+embeddings strategies:
+
+1. `time` is now embedded by `sin` and `cos`.
+2. The stations are one-hot encoded by the `onehot` function.
+3. To counteract the skewness, the output is embedded by taking the square root.
+
+```julia; wrap=false; hold=true
+# Treat (position x, position y) as the categorical station feature
+function onehot(positions, stations)
+    out = zeros(Float64, size(positions, 1), length(stations))
+    for i in 1:size(positions, 1)
+        position = (positions[i, 1], positions[i, 2])
+        station = findfirst(s -> s == position, stations)
+        out[i, station] = 1.0
+    end
+    out
+end
+
+# Embeddings
+X = hcat(ones(size(U, 1)),
+         embed_time(U[:, 1]),
+         U[:, 2],
+         onehot(U[:, 3:4], stations))
+y = sqrt.(v)
+unembed(y) = y.^2
+
+# Prepare train and test sets
+train_set, test_set = split_dataset(X, y)
+train_X, train_y = train_set.input, train_set.output
+test_X, test_y = test_set.input, test_set.output
+
+# Training
+θ, train_ŷ, train_error = find_theta(train_X, train_y)
+
+# Validate
+test_ŷ = test_X * θ
+test_error = RMSE(test_ŷ, test_y)
+@show θ
+@show train_error
+@show test_error;
+@show RMSE(unembed(test_ŷ), unembed(test_y))
+
+# Plot results
+pl1 = scatter(unembed(train_ŷ), unembed(train_y), aspect_ratio=:equal,
+              title="Train Set", legend=:none,
+              xlabel="Predicted Activity", ylabel="Observed Activity")
+pl2 = scatter(unembed(test_ŷ), unembed(test_y), aspect_ratio=:equal,
+              title="Test Set", legend=:none,
+              xlabel="Predicted Activity", ylabel="Observed Activity")
+plot(pl1, pl2)
+```
+
+Our loss is better, but the most important part is that our predictor parameter
+is much smaller than before, and generalizes much better for unseen data. If we
+take a look at the graph, there's a better direct relationship between our
+predictions and observed output.
