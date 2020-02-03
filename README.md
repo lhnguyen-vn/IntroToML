@@ -6,6 +6,7 @@ This repository contains my solutions for assignments from Stanford's [EE104: In
 
 - [Homework 1](https://lhnguyen-vn.github.io/IntroToML/html/hw1.html)
 - [Homework 2](https://lhnguyen-vn.github.io/IntroToML/html/hw2.html)
+- [Homework 3](https://lhnguyen-vn.github.io/IntroToML/html/hw3.html)
 
 ### Data 
 
@@ -17,4 +18,5 @@ Datasets used for the above solutions are provided in the course's page. They ar
  - [`polyfit.json`](https://lhnguyen-vn.github.io/IntroToML/data/polyfit.json)
  - [`embeddings_data.json`](https://lhnguyen-vn.github.io/IntroToML/data/embeddings_data.json)
  - [`features.json`](https://lhnguyen-vn.github.io/IntroToML/data/features.json)
-
+ - [`RERM.json`](https://lhnguyen-vn.github.io/IntroToML/data/RERM.json)
+ - [`bike.json`](https://lhnguyen-vn.github.io/IntroToML/data/bike.json)
