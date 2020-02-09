@@ -260,8 +260,6 @@ function GD(X, y, loss; max_iter=100, ϵ=1e-7, h=0.1)
         end
     end
 
-    # println("Gradient descent after $iter iterations:",
-            # "\n\tFinal loss: $(loss(X * θ - y))")
     return θ
 end
 ;

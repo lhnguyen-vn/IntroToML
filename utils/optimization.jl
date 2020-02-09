@@ -1,76 +1,78 @@
 using Statistics: norm
 
+### Abstract type for loss objectives
 """
-    Loss(penalty, gradient)
+    abstract type Loss
 
-A loss objective wrapper of the penalty and the gradient.
+The abstract type for loss objectives. Concrete types subtyping `Loss` must
+define a `penalty` method to specify the penalty function to calculate the loss,
+and a `derivative` method to compute the derivative of such penalty function.
+Loss is calculated as the mean of the penalty applied to the predictions and
+observations.
 """
-struct Loss
-    penalty::Function
-    gradient::Function
+abstract type Loss end
+
+# Useful error messages if required methods are not specified
+penalty(l::Loss) = error("No `penalty` method defined for type $(typeof(l)).")
+derivative(l::Loss) =
+    error("No `gradient` method defined for type $(typeof(l)).")
+
+# Loss objective evaluation
+"""
+    (l::Loss)(ŷ, y)
+
+Compute the loss objective by taking the mean of the penalty applied to `ŷ - y`.
+"""
+(l::Loss)(ŷ, y) = sum(penalty(l), ŷ - y) / length(y)
+
+# Loss objective gradient
+"""
+    gradient(l::Loss, ŷ, y)
+
+Compute the gradient of the loss objective with the `derivative` method.
+"""
+gradient(l::Loss, ŷ, y) = derivative(l).(ŷ - y) / length(y)
+
+### Square loss
+"""
+    struct SquareLoss
+
+Self-explanatory loss function by squaring the error.
+"""
+struct SquareLoss <: Loss end
+
+penalty(l::SquareLoss) = x -> x^2
+derivative(l::SquareLoss) = x -> 2x
+
+### Huber loss
+"""
+    struct HuberLoss
+
+Loss objective using the Huber penalty function with parameter `α`.
+"""
+struct HuberLoss <: Loss
+    α
 end
 
-Loss(penalty, gradient, params...) =
-    Loss(penalty(params...), gradient(params...))
+penalty(l::HuberLoss) = x -> (abs(x) <= l.α ? x^2 : l.α * (2abs(x) - l.α))
+derivative(l::HuberLoss) = x -> (abs(x) <= l.α ? 2 * x : 2 * l.α * x / abs(x))
 
-# Compute loss
-(L::Loss)(diff) = sum(L.penalty, diff) / length(y)
-# Compute gradient
-grad(L::Loss, diff) = L.gradient.(diff) / length(y)
-
-# Square loss
-"""
-    p_square(error)
-
-Compute square penalty for a given error.
-"""
-p_square(x) = x^2
+### Log Huber loss
 
 """
-    delta_square(error)
+    struct LogHuberLoss
 
-Compute the derivative for the square penalty at the error.
+Loss objective using the log Huber penalty function with parameter `α`.
 """
-delta_p_square(x) = 2 * x
+struct LogHuberLoss <: Loss
+    α
+end
 
-square_loss = Loss(p_square, delta_p_square)
+penalty(l::LogHuberLoss) =
+    x -> (abs(x) <= l.α ? x^2 : l.α^2 * (1 - 2log(l.α) + log(x^2)))
+derivative(l::LogHuberLoss) = x -> (abs(x) <= l.α ? 2 * x : 2 * l.α^2 / x)
 
-# Huber loss
-"""
-    p_huber(α)
-
-Return the Huber penalty function for a given `α`.
-"""
-p_huber(α) = x -> (abs(x) <= α ? x^2 : α * (2abs(x) - α))
-
-"""
-    delta_huber(α)
-
-Return the derivative function for the Huber penalty for a given `α`.
-"""
-delta_p_huber(α) = x -> (abs(x) <= α ? 2 * x : 2 * α * x / abs(x))
-
-huber_loss(α) = Loss(p_huber, delta_p_huber, α)
-
-# Log Huber loss
-
-"""
-    p_log_huber(α)
-
-Return the log Huber penalty function for a given `α`.
-"""
-p_log_huber(α) = x -> (abs(x) <= α ? x^2 : α^2 * (1 - 2log(α) + log(x^2)))
-
-"""
-    delta_log_huber(α)
-
-Return the derivative function for the log Huber penalty of a given `α`.
-"""
-delta_log_huber(α) = x -> (abs(x) <= α ? 2 * x : 2 * α^2 / x)
-
-log_huber_loss(α) = Loss(p_log_huber, delta_log_huber, α)
-
-# Gradient Descent
+### Gradient Descent
 """
     GD(X, y, loss[, max_iter=nothing, ϵ=1e-7, h=0.1])
 
@@ -86,13 +88,13 @@ function GD(X, y, loss; max_iter=100, ϵ=1e-7, h=0.1)
         iter += 1
 
         # Compute loss gradient and break if gradient is small enough
-        ∇ = X' * grad(loss, X * θ - y)
+        ∇ = X' * gradient(loss, X * θ, y)
         norm(∇) ≤ ϵ && break
 
         # Iterate to find better θ
         while true
             tent_θ = θ - h * ∇ # tentative update to θ
-            if loss(X * tent_θ - y) ≤ loss(X * θ - y)
+            if loss(X * tent_θ, y) ≤ loss(X * θ, y)
                 θ = tent_θ
                 h *= 1.2
                 break
@@ -102,7 +104,5 @@ function GD(X, y, loss; max_iter=100, ϵ=1e-7, h=0.1)
         end
     end
 
-    # println("Gradient descent after $iter iterations:",
-            # "\n\tFinal loss: $(loss(X * θ - y))")
     return θ
 end
