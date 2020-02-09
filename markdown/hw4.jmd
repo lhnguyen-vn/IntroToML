@@ -1,0 +1,306 @@
+---
+title: Homework 4
+author: Long Nguyen
+---
+
+## 1. Monotonicity of Loss and Regularizer
+
+We consider an example of regularized empirical risk minimization as follows,
+
+```math
+\mathcal{L}(θ) + λr(θ),\: where\: \mathcal{L}(θ) = \frac{1}{n}∑_iℓ(θ^Tx^i, y^i)
+```
+
+We further consider two different regularization parameters, ``λ`` and
+``\widetilde{λ}``, such that ``0 < λ ≤ \widetilde{λ}``. Let's also define ``θ``
+and ``\widetilde{θ}`` to be the minimizing parameters of ``\mathcal{L}(θ) +
+λr(θ)`` and ``\mathcal{L}(θ) + \widetilde{λ}r(θ)``, respectively.
+
+#### (a) Monotonicity of Regularizer
+
+An interesting result we observe is that as the regularization parameter gets
+larger, the regularization error will not. We could leverage the fact that each
+``θ`` achieves the lowest value of its corresponding regularized loss function.
+
+$$
+\begin{align*}
+\mathcal{L}(θ) + λr(θ) &≤ \mathcal{L}(\widetilde{θ}) + λr(\widetilde{θ}) \\
+\mathcal{L}(\widetilde{θ}) + \widetilde{λ}r(\widetilde{θ}) &≤
+    \mathcal{L}(θ) + \widetilde{λ}r(θ) \\
+⟹ \mathcal{L}(θ)+λr(θ)+\mathcal{L}(\widetilde{θ})+\widetilde{λ}r(\widetilde{θ})
+    &≤ \mathcal{L}(\widetilde{θ}) + λr(\widetilde{θ}) +
+    \mathcal{L}(θ) + \widetilde{λ}r(θ) \\
+⟹ λr(θ)+\widetilde{λ}r(\widetilde{θ}) &≤ λr(\widetilde{θ})+\widetilde{λ}r(θ) \\
+⟹ (\widetilde{λ} - λ)r(\widetilde{θ}) &≤ (\widetilde{λ} - λ)r(θ)
+\end{align*}
+$$
+
+If ``\widetilde{λ} = λ``, then the regularization error is the same. But if
+``\widetilde{λ} > λ``, then it follows from our inequality above that
+``r(\widetilde{θ}) ≤ r(θ)``.
+
+#### (b) Monotonicity of Loss
+
+We observe further that increasing ``λ`` will not reduce our loss function
+``\mathcal{L}``. This follows easily from our previous result:
+
+$$
+\begin{align*}
+\mathcal{L}(θ) + λr(θ) &≤ \mathcal{L}(\widetilde{θ}) + λr(\widetilde{θ}) \\
+\mathcal{L}(\widetilde{θ}) + λr(\widetilde{θ}) &≤
+    \mathcal{L}(\widetilde{θ}) + λr(θ) \\
+⟹ \mathcal{L}(θ) + λr(θ) &≤ \mathcal{L}(\widetilde{θ}) + λr(θ) \\
+⟹ \mathcal{L}(θ) &≤ \mathcal{L}(\widetilde{θ})
+\end{align*}
+$$
+
+To sum up, with larger regularization parameter, our regularized error will
+not increase, but our loss won't decrease either.
+
+## 2. Common Loss Functions
+
+In this section, we take a look at some popular choice of loss function: square
+penalty, Huber penalty, and log Huber penalty.
+
+1. Square penalty is relatively straight forward, ``p^{sqr}(r)=r^2``. Small
+errors is not penalized as much, but significant difference from our predictions
+result in large loss.
+2. Huber penalty is quadratic for small errors, but linear for large ones. This
+is so that our predictor is less sensitive to outliers.
+3. Log Huber penalty follows the same rationale, but makes large errors even
+smaller using the `log` function.
+
+#### (a) Gradients
+
+Below we implement the penalty functions and their gradients:
+
+```julia
+"""
+    Loss(penalty, gradient)
+
+A loss objective wrapper of the penalty and the gradient.
+"""
+struct Loss
+    penalty::Function
+    gradient::Function
+end
+
+Loss(penalty, gradient, params...) =
+    Loss(penalty(params...), gradient(params...))
+
+# Compute loss
+(L::Loss)(diff) = sum(L.penalty, diff) / length(y)
+# Compute gradient
+grad(L::Loss, diff) = L.gradient.(diff) / length(y)
+
+# Square loss
+"""
+    p_square(error)
+
+Compute square penalty for a given error.
+"""
+p_square(x) = x^2
+
+"""
+    delta_square(error)
+
+Compute the derivative for the square penalty at the error.
+"""
+delta_p_square(x) = 2 * x
+
+square_loss = Loss(p_square, delta_p_square)
+
+# Huber loss
+"""
+    p_huber(α)
+
+Return the Huber penalty function for a given `α`.
+"""
+p_huber(α) = x -> (abs(x) <= α ? x^2 : α * (2abs(x) - α))
+
+"""
+    delta_huber(α)
+
+Return the derivative function for the Huber penalty for a given `α`.
+"""
+delta_p_huber(α) = x -> (abs(x) <= α ? 2 * x : 2 * α * x / abs(x))
+
+huber_loss(α) = Loss(p_huber, delta_p_huber, α)
+
+# Log Huber loss
+
+"""
+    p_log_huber(α)
+
+Return the log Huber penalty function for a given `α`.
+"""
+p_log_huber(α) = x -> (abs(x) <= α ? x^2 : α^2 * (1 - 2log(α) + log(x^2)))
+
+"""
+    delta_log_huber(α)
+
+Return the derivative function for the log Huber penalty of a given `α`.
+"""
+delta_log_huber(α) = x -> (abs(x) <= α ? 2 * x : 2 * α^2 / x)
+
+log_huber_loss(α) = Loss(p_log_huber, delta_log_huber, α)
+;
+```
+
+#### (b) Convexity
+
+Convexity of a penalty loss function is a significant factor to consider, since
+if the loss is convex, a numerical iterative method will be able to approximate
+the optimal solution.
+
+From the loss functions detailed in the previous section, the square and Huber
+penalty losses are convex, since their second derivatives are nonnegative. The
+log Huber loss, however, is not convex, since the second derivative is negative.
+
+Therefore, it is not guaranteed that the log Huber loss will reach an optimal
+solution, but the approach will be most resistant to outliers in our dataset.
+In other words, the choice of the loss function is up to what we need our for
+our predictor.
+
+#### (c) Demonstrations
+
+We demonstrate how different loss objectives affect training on our dataset
+`loss.json`. The predictors to evaluate are:
+
+1. ``ŷ = 15.5x + 5.9``
+2. ``ŷ = 10x + 6.5``
+3. ``ŷ = 5x + 7.9``
+
+```julia
+predict1(x) = 15.5x .+ 5.9
+predict2(x) = 10x .+ 6.5
+predict3(x) = 5x .+ 7.9
+predictors = [predict1, predict2, predict3]
+labels = ["y = 15.5x + 5.9" "y = 10x + 6.5" "y = 5x + 7.9"]
+;
+```
+
+Let's try out each predictor with the loss functions defined so far.
+
+```julia
+using Plots
+
+# Load dataset
+include("./utils/readclassjson.jl")
+data = readclassjson("./data/loss.json")
+x = data["X"]
+y = data["y"]
+
+# Plotting
+scatter(x, y, label="")
+xrange = -3:0.1:3
+plot!(xrange, [predict(xrange) for predict in predictors],
+      labels=labels, legend=:right) |> display
+
+# Compute losses
+losses = [square_loss, huber_loss(1), log_huber_loss(1)]
+loss_labels = ["Square loss", "Huber loss (α = 1)", "Log Huber loss (α = 1)" ]
+for (label, predict) in zip(labels, predictors)
+    println("For predictor $label:")
+    for (loss_label, loss) in zip(loss_labels, losses)
+        println("\t$loss_label: ", loss(predict(x) - y))
+    end
+end
+```
+From the graph and the losses, we observe empirical evidence that our intuition
+about penalty functions are right: square loss is the lowest for the predictor
+most affected by the outliers, while log Huber loss is very resistant to such
+abnormalities.
+
+## 3. Gradient Descent
+
+#### (a) Julia Implementation
+
+We explore the gradient descent method to optimize an objective function in this
+section. Below we define a straightforward implementation of gradient descent:
+
+```julia
+using Statistics: norm
+
+"""
+    GD(X, y, loss[, max_iter=nothing, ϵ=1e-7, h=0.1])
+
+Gradient descent on the input `X` and the output `y` using the loss function
+provided. The algorithm stops when it reaches maximum iterations, or if the
+Euclidean norm of the gradient is lower than or equal to `ϵ`.
+"""
+function GD(X, y, loss; max_iter=100, ϵ=1e-7, h=0.1)
+    θ = randn(size(X, 2), size(y, 2))
+    iter = 0
+
+    while iter ≤ max_iter
+        iter += 1
+
+        # Compute loss gradient and break if gradient is small enough
+        ∇ = X' * grad(loss, X * θ - y)
+        norm(∇) ≤ ϵ && break
+
+        # Iterate to find better θ
+        while true
+            tent_θ = θ - h * ∇ # tentative update to θ
+            if loss(X * tent_θ - y) ≤ loss(X * θ - y)
+                θ = tent_θ
+                h *= 1.2
+                break
+            else
+                h *= 0.5
+            end
+        end
+    end
+
+    # println("Gradient descent after $iter iterations:",
+            # "\n\tFinal loss: $(loss(X * θ - y))")
+    return θ
+end
+;
+```
+
+#### (b) Loss Optimization
+
+We perform gradient descent on our dataset `gd.json` and find the optimal ``θ``
+that minimizes the loss function.
+
+```julia
+# Load dataset
+data = readclassjson("./data/gd.json")
+X = data["X"]
+y = data["y"]
+num_data = size(X, 1)
+
+scatter(X[:, 1], X[:, 2], y, label="", camera=(15, 30)) |> display
+histogram(y, bins=50, label="", xlabel="Output", ylabel="Frequency")
+```
+
+From the plot, we observe that our data do not seem to have so many outliers. In
+fact, the output is relatively normally distributed. We will therefore choose
+the Huber loss to model our data, with the standard deviation as ``α``.
+
+```julia; hold=true
+using Statistics: std
+include("./utils/regression.jl")
+
+loss = huber_loss(std(y))
+affine_X = hcat(ones(size(X, 1)), X)
+
+θ1 = GD(affine_X, y, loss)
+θ2, = find_theta(affine_X, y)
+
+@show θ1
+@show θ2
+;
+```
+
+We see that gradient descent approximate the optimal solution correctly to the
+seventh decimal point (the tolerance error is ``10^{-7}``)!
+
+#### (c) Gradient Descent Performace
+
+While gradient descent is an important tool for optimization, the algorithm does
+not necessarily converge for non-convex objective. Another important point to
+keep in mind is that gradient descent could very well be stuck in a local minima
+depending on the step size instead of the true optimal solution.

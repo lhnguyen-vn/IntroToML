@@ -1,3 +1,5 @@
+include("./RMSE.jl")
+
 """
     find_theta(X, y)
 
