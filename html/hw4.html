@@ -712,84 +712,87 @@ div.title {text-align: center;}
 </ol>
 <p>smaller using the <code>log</code> function.</p>
 <h4>&#40;a&#41; Gradients</h4>
-<p>Below we implement the penalty functions and their gradients:</p>
+<p>Below we implement the loss functions and their gradients:</p>
 
 
 <pre class='hljl'>
-<span class='hljl-s'>&quot;&quot;&quot;
-    Loss(penalty, gradient)
+<span class='hljl-cs'>### Abstract type for loss objectives</span><span class='hljl-t'>
+</span><span class='hljl-s'>&quot;&quot;&quot;
+    abstract type Loss
 
-A loss objective wrapper of the penalty and the gradient.
+The abstract type for loss objectives. Concrete types subtyping `Loss` must
+define a `penalty` method to specify the penalty function to calculate the loss,
+and a `derivative` method to compute the derivative of such penalty function.
+Loss is calculated as the mean of the penalty applied to the predictions and
+observations.
 &quot;&quot;&quot;</span><span class='hljl-t'>
-</span><span class='hljl-k'>struct</span><span class='hljl-t'> </span><span class='hljl-n'>Loss</span><span class='hljl-t'>
-    </span><span class='hljl-n'>penalty</span><span class='hljl-oB'>::</span><span class='hljl-n'>Function</span><span class='hljl-t'>
-    </span><span class='hljl-n'>gradient</span><span class='hljl-oB'>::</span><span class='hljl-n'>Function</span><span class='hljl-t'>
+</span><span class='hljl-k'>abstract type</span><span class='hljl-t'> </span><span class='hljl-n'>Loss</span><span class='hljl-t'> </span><span class='hljl-k'>end</span><span class='hljl-t'>
+
+</span><span class='hljl-cs'># Useful error messages if required methods are not specified</span><span class='hljl-t'>
+</span><span class='hljl-nf'>penalty</span><span class='hljl-p'>(</span><span class='hljl-n'>l</span><span class='hljl-oB'>::</span><span class='hljl-n'>Loss</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>error</span><span class='hljl-p'>(</span><span class='hljl-s'>&quot;No `penalty` method defined for type </span><span class='hljl-si'>$</span><span class='hljl-p'>(</span><span class='hljl-nf'>typeof</span><span class='hljl-p'>(</span><span class='hljl-n'>l</span><span class='hljl-p'>))</span><span class='hljl-s'>.&quot;</span><span class='hljl-p'>)</span><span class='hljl-t'>
+</span><span class='hljl-nf'>derivative</span><span class='hljl-p'>(</span><span class='hljl-n'>l</span><span class='hljl-oB'>::</span><span class='hljl-n'>Loss</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'>
+    </span><span class='hljl-nf'>error</span><span class='hljl-p'>(</span><span class='hljl-s'>&quot;No `gradient` method defined for type </span><span class='hljl-si'>$</span><span class='hljl-p'>(</span><span class='hljl-nf'>typeof</span><span class='hljl-p'>(</span><span class='hljl-n'>l</span><span class='hljl-p'>))</span><span class='hljl-s'>.&quot;</span><span class='hljl-p'>)</span><span class='hljl-t'>
+
+</span><span class='hljl-cs'># Loss objective evaluation</span><span class='hljl-t'>
+</span><span class='hljl-s'>&quot;&quot;&quot;
+    (l::Loss)(ŷ, y)
+
+Compute the loss objective by taking the mean of the penalty applied to `ŷ - y`.
+&quot;&quot;&quot;</span><span class='hljl-t'>
+</span><span class='hljl-p'>(</span><span class='hljl-n'>l</span><span class='hljl-oB'>::</span><span class='hljl-n'>Loss</span><span class='hljl-p'>)(</span><span class='hljl-n'>ŷ</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>y</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>sum</span><span class='hljl-p'>(</span><span class='hljl-nf'>penalty</span><span class='hljl-p'>(</span><span class='hljl-n'>l</span><span class='hljl-p'>),</span><span class='hljl-t'> </span><span class='hljl-n'>ŷ</span><span class='hljl-t'> </span><span class='hljl-oB'>-</span><span class='hljl-t'> </span><span class='hljl-n'>y</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>/</span><span class='hljl-t'> </span><span class='hljl-nf'>length</span><span class='hljl-p'>(</span><span class='hljl-n'>y</span><span class='hljl-p'>)</span><span class='hljl-t'>
+
+</span><span class='hljl-cs'># Loss objective gradient</span><span class='hljl-t'>
+</span><span class='hljl-s'>&quot;&quot;&quot;
+    gradient(l::Loss, ŷ, y)
+
+Compute the gradient of the loss objective with the `derivative` method.
+&quot;&quot;&quot;</span><span class='hljl-t'>
+</span><span class='hljl-nf'>gradient</span><span class='hljl-p'>(</span><span class='hljl-n'>l</span><span class='hljl-oB'>::</span><span class='hljl-n'>Loss</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>ŷ</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>y</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>derivative</span><span class='hljl-p'>(</span><span class='hljl-n'>l</span><span class='hljl-p'>)</span><span class='hljl-oB'>.</span><span class='hljl-p'>(</span><span class='hljl-n'>ŷ</span><span class='hljl-t'> </span><span class='hljl-oB'>-</span><span class='hljl-t'> </span><span class='hljl-n'>y</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>/</span><span class='hljl-t'> </span><span class='hljl-nf'>length</span><span class='hljl-p'>(</span><span class='hljl-n'>y</span><span class='hljl-p'>)</span><span class='hljl-t'>
+
+</span><span class='hljl-cs'>### Square loss</span><span class='hljl-t'>
+</span><span class='hljl-s'>&quot;&quot;&quot;
+    struct SquareLoss
+
+Self-explanatory loss function by squaring the error.
+&quot;&quot;&quot;</span><span class='hljl-t'>
+</span><span class='hljl-k'>struct</span><span class='hljl-t'> </span><span class='hljl-n'>SquareLoss</span><span class='hljl-t'> </span><span class='hljl-oB'>&lt;:</span><span class='hljl-t'> </span><span class='hljl-n'>Loss</span><span class='hljl-t'> </span><span class='hljl-k'>end</span><span class='hljl-t'>
+
+</span><span class='hljl-nf'>penalty</span><span class='hljl-p'>(</span><span class='hljl-n'>l</span><span class='hljl-oB'>::</span><span class='hljl-n'>SquareLoss</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-t'> </span><span class='hljl-oB'>-&gt;</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-oB'>^</span><span class='hljl-ni'>2</span><span class='hljl-t'>
+</span><span class='hljl-nf'>derivative</span><span class='hljl-p'>(</span><span class='hljl-n'>l</span><span class='hljl-oB'>::</span><span class='hljl-n'>SquareLoss</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-t'> </span><span class='hljl-oB'>-&gt;</span><span class='hljl-t'> </span><span class='hljl-ni'>2</span><span class='hljl-n'>x</span><span class='hljl-t'>
+
+</span><span class='hljl-cs'>### Huber loss</span><span class='hljl-t'>
+</span><span class='hljl-s'>&quot;&quot;&quot;
+    struct HuberLoss
+
+Loss objective using the Huber penalty function with parameter `α`.
+&quot;&quot;&quot;</span><span class='hljl-t'>
+</span><span class='hljl-k'>struct</span><span class='hljl-t'> </span><span class='hljl-n'>HuberLoss</span><span class='hljl-t'> </span><span class='hljl-oB'>&lt;:</span><span class='hljl-t'> </span><span class='hljl-n'>Loss</span><span class='hljl-t'>
+    </span><span class='hljl-n'>α</span><span class='hljl-t'>
 </span><span class='hljl-k'>end</span><span class='hljl-t'>
 
-</span><span class='hljl-nf'>Loss</span><span class='hljl-p'>(</span><span class='hljl-n'>penalty</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>gradient</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>params</span><span class='hljl-oB'>...</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'>
-    </span><span class='hljl-nf'>Loss</span><span class='hljl-p'>(</span><span class='hljl-nf'>penalty</span><span class='hljl-p'>(</span><span class='hljl-n'>params</span><span class='hljl-oB'>...</span><span class='hljl-p'>),</span><span class='hljl-t'> </span><span class='hljl-nf'>gradient</span><span class='hljl-p'>(</span><span class='hljl-n'>params</span><span class='hljl-oB'>...</span><span class='hljl-p'>))</span><span class='hljl-t'>
+</span><span class='hljl-nf'>penalty</span><span class='hljl-p'>(</span><span class='hljl-n'>l</span><span class='hljl-oB'>::</span><span class='hljl-n'>HuberLoss</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-t'> </span><span class='hljl-oB'>-&gt;</span><span class='hljl-t'> </span><span class='hljl-p'>(</span><span class='hljl-nf'>abs</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>&lt;=</span><span class='hljl-t'> </span><span class='hljl-n'>l</span><span class='hljl-oB'>.</span><span class='hljl-n'>α</span><span class='hljl-t'> </span><span class='hljl-oB'>?</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-oB'>^</span><span class='hljl-ni'>2</span><span class='hljl-t'> </span><span class='hljl-oB'>:</span><span class='hljl-t'> </span><span class='hljl-n'>l</span><span class='hljl-oB'>.</span><span class='hljl-n'>α</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-p'>(</span><span class='hljl-ni'>2</span><span class='hljl-nf'>abs</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>-</span><span class='hljl-t'> </span><span class='hljl-n'>l</span><span class='hljl-oB'>.</span><span class='hljl-n'>α</span><span class='hljl-p'>))</span><span class='hljl-t'>
+</span><span class='hljl-nf'>derivative</span><span class='hljl-p'>(</span><span class='hljl-n'>l</span><span class='hljl-oB'>::</span><span class='hljl-n'>HuberLoss</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-t'> </span><span class='hljl-oB'>-&gt;</span><span class='hljl-t'> </span><span class='hljl-p'>(</span><span class='hljl-nf'>abs</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>&lt;=</span><span class='hljl-t'> </span><span class='hljl-n'>l</span><span class='hljl-oB'>.</span><span class='hljl-n'>α</span><span class='hljl-t'> </span><span class='hljl-oB'>?</span><span class='hljl-t'> </span><span class='hljl-ni'>2</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-t'> </span><span class='hljl-oB'>:</span><span class='hljl-t'> </span><span class='hljl-ni'>2</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-n'>l</span><span class='hljl-oB'>.</span><span class='hljl-n'>α</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-t'> </span><span class='hljl-oB'>/</span><span class='hljl-t'> </span><span class='hljl-nf'>abs</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-p'>))</span><span class='hljl-t'>
 
-</span><span class='hljl-cs'># Compute loss</span><span class='hljl-t'>
-</span><span class='hljl-p'>(</span><span class='hljl-n'>L</span><span class='hljl-oB'>::</span><span class='hljl-n'>Loss</span><span class='hljl-p'>)(</span><span class='hljl-n'>diff</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>sum</span><span class='hljl-p'>(</span><span class='hljl-n'>L</span><span class='hljl-oB'>.</span><span class='hljl-n'>penalty</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>diff</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>/</span><span class='hljl-t'> </span><span class='hljl-nf'>length</span><span class='hljl-p'>(</span><span class='hljl-n'>y</span><span class='hljl-p'>)</span><span class='hljl-t'>
-</span><span class='hljl-cs'># Compute gradient</span><span class='hljl-t'>
-</span><span class='hljl-nf'>grad</span><span class='hljl-p'>(</span><span class='hljl-n'>L</span><span class='hljl-oB'>::</span><span class='hljl-n'>Loss</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>diff</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>L</span><span class='hljl-oB'>.</span><span class='hljl-n'>gradient</span><span class='hljl-oB'>.</span><span class='hljl-p'>(</span><span class='hljl-n'>diff</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>/</span><span class='hljl-t'> </span><span class='hljl-nf'>length</span><span class='hljl-p'>(</span><span class='hljl-n'>y</span><span class='hljl-p'>)</span><span class='hljl-t'>
-
-</span><span class='hljl-cs'># Square loss</span><span class='hljl-t'>
-</span><span class='hljl-s'>&quot;&quot;&quot;
-    p_square(error)
-
-Compute square penalty for a given error.
-&quot;&quot;&quot;</span><span class='hljl-t'>
-</span><span class='hljl-nf'>p_square</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-oB'>^</span><span class='hljl-ni'>2</span><span class='hljl-t'>
+</span><span class='hljl-cs'>### Log Huber loss</span><span class='hljl-t'>
 
 </span><span class='hljl-s'>&quot;&quot;&quot;
-    delta_square(error)
+    struct LogHuberLoss
 
-Compute the derivative for the square penalty at the error.
+Loss objective using the log Huber penalty function with parameter `α`.
 &quot;&quot;&quot;</span><span class='hljl-t'>
-</span><span class='hljl-nf'>delta_p_square</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-ni'>2</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-t'>
+</span><span class='hljl-k'>struct</span><span class='hljl-t'> </span><span class='hljl-n'>LogHuberLoss</span><span class='hljl-t'> </span><span class='hljl-oB'>&lt;:</span><span class='hljl-t'> </span><span class='hljl-n'>Loss</span><span class='hljl-t'>
+    </span><span class='hljl-n'>α</span><span class='hljl-t'>
+</span><span class='hljl-k'>end</span><span class='hljl-t'>
 
-</span><span class='hljl-n'>square_loss</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>Loss</span><span class='hljl-p'>(</span><span class='hljl-n'>p_square</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>delta_p_square</span><span class='hljl-p'>)</span><span class='hljl-t'>
-
-</span><span class='hljl-cs'># Huber loss</span><span class='hljl-t'>
-</span><span class='hljl-s'>&quot;&quot;&quot;
-    p_huber(α)
-
-Return the Huber penalty function for a given `α`.
-&quot;&quot;&quot;</span><span class='hljl-t'>
-</span><span class='hljl-nf'>p_huber</span><span class='hljl-p'>(</span><span class='hljl-n'>α</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-t'> </span><span class='hljl-oB'>-&gt;</span><span class='hljl-t'> </span><span class='hljl-p'>(</span><span class='hljl-nf'>abs</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>&lt;=</span><span class='hljl-t'> </span><span class='hljl-n'>α</span><span class='hljl-t'> </span><span class='hljl-oB'>?</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-oB'>^</span><span class='hljl-ni'>2</span><span class='hljl-t'> </span><span class='hljl-oB'>:</span><span class='hljl-t'> </span><span class='hljl-n'>α</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-p'>(</span><span class='hljl-ni'>2</span><span class='hljl-nf'>abs</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>-</span><span class='hljl-t'> </span><span class='hljl-n'>α</span><span class='hljl-p'>))</span><span class='hljl-t'>
-
-</span><span class='hljl-s'>&quot;&quot;&quot;
-    delta_huber(α)
-
-Return the derivative function for the Huber penalty for a given `α`.
-&quot;&quot;&quot;</span><span class='hljl-t'>
-</span><span class='hljl-nf'>delta_p_huber</span><span class='hljl-p'>(</span><span class='hljl-n'>α</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-t'> </span><span class='hljl-oB'>-&gt;</span><span class='hljl-t'> </span><span class='hljl-p'>(</span><span class='hljl-nf'>abs</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>&lt;=</span><span class='hljl-t'> </span><span class='hljl-n'>α</span><span class='hljl-t'> </span><span class='hljl-oB'>?</span><span class='hljl-t'> </span><span class='hljl-ni'>2</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-t'> </span><span class='hljl-oB'>:</span><span class='hljl-t'> </span><span class='hljl-ni'>2</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-n'>α</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-t'> </span><span class='hljl-oB'>/</span><span class='hljl-t'> </span><span class='hljl-nf'>abs</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-p'>))</span><span class='hljl-t'>
-
-</span><span class='hljl-nf'>huber_loss</span><span class='hljl-p'>(</span><span class='hljl-n'>α</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>Loss</span><span class='hljl-p'>(</span><span class='hljl-n'>p_huber</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>delta_p_huber</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>α</span><span class='hljl-p'>)</span><span class='hljl-t'>
-
-</span><span class='hljl-cs'># Log Huber loss</span><span class='hljl-t'>
-
-</span><span class='hljl-s'>&quot;&quot;&quot;
-    p_log_huber(α)
-
-Return the log Huber penalty function for a given `α`.
-&quot;&quot;&quot;</span><span class='hljl-t'>
-</span><span class='hljl-nf'>p_log_huber</span><span class='hljl-p'>(</span><span class='hljl-n'>α</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-t'> </span><span class='hljl-oB'>-&gt;</span><span class='hljl-t'> </span><span class='hljl-p'>(</span><span class='hljl-nf'>abs</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>&lt;=</span><span class='hljl-t'> </span><span class='hljl-n'>α</span><span class='hljl-t'> </span><span class='hljl-oB'>?</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-oB'>^</span><span class='hljl-ni'>2</span><span class='hljl-t'> </span><span class='hljl-oB'>:</span><span class='hljl-t'> </span><span class='hljl-n'>α</span><span class='hljl-oB'>^</span><span class='hljl-ni'>2</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-p'>(</span><span class='hljl-ni'>1</span><span class='hljl-t'> </span><span class='hljl-oB'>-</span><span class='hljl-t'> </span><span class='hljl-ni'>2</span><span class='hljl-nf'>log</span><span class='hljl-p'>(</span><span class='hljl-n'>α</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>+</span><span class='hljl-t'> </span><span class='hljl-nf'>log</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-oB'>^</span><span class='hljl-ni'>2</span><span class='hljl-p'>)))</span><span class='hljl-t'>
-
-</span><span class='hljl-s'>&quot;&quot;&quot;
-    delta_log_huber(α)
-
-Return the derivative function for the log Huber penalty of a given `α`.
-&quot;&quot;&quot;</span><span class='hljl-t'>
-</span><span class='hljl-nf'>delta_log_huber</span><span class='hljl-p'>(</span><span class='hljl-n'>α</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-t'> </span><span class='hljl-oB'>-&gt;</span><span class='hljl-t'> </span><span class='hljl-p'>(</span><span class='hljl-nf'>abs</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>&lt;=</span><span class='hljl-t'> </span><span class='hljl-n'>α</span><span class='hljl-t'> </span><span class='hljl-oB'>?</span><span class='hljl-t'> </span><span class='hljl-ni'>2</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-t'> </span><span class='hljl-oB'>:</span><span class='hljl-t'> </span><span class='hljl-ni'>2</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-n'>α</span><span class='hljl-oB'>^</span><span class='hljl-ni'>2</span><span class='hljl-t'> </span><span class='hljl-oB'>/</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-p'>)</span><span class='hljl-t'>
-
-</span><span class='hljl-nf'>log_huber_loss</span><span class='hljl-p'>(</span><span class='hljl-n'>α</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>Loss</span><span class='hljl-p'>(</span><span class='hljl-n'>p_log_huber</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>delta_log_huber</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>α</span><span class='hljl-p'>)</span><span class='hljl-t'>
+</span><span class='hljl-nf'>penalty</span><span class='hljl-p'>(</span><span class='hljl-n'>l</span><span class='hljl-oB'>::</span><span class='hljl-n'>LogHuberLoss</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'>
+    </span><span class='hljl-n'>x</span><span class='hljl-t'> </span><span class='hljl-oB'>-&gt;</span><span class='hljl-t'> </span><span class='hljl-p'>(</span><span class='hljl-nf'>abs</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>&lt;=</span><span class='hljl-t'> </span><span class='hljl-n'>l</span><span class='hljl-oB'>.</span><span class='hljl-n'>α</span><span class='hljl-t'> </span><span class='hljl-oB'>?</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-oB'>^</span><span class='hljl-ni'>2</span><span class='hljl-t'> </span><span class='hljl-oB'>:</span><span class='hljl-t'> </span><span class='hljl-n'>l</span><span class='hljl-oB'>.</span><span class='hljl-n'>α</span><span class='hljl-oB'>^</span><span class='hljl-ni'>2</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-p'>(</span><span class='hljl-ni'>1</span><span class='hljl-t'> </span><span class='hljl-oB'>-</span><span class='hljl-t'> </span><span class='hljl-ni'>2</span><span class='hljl-nf'>log</span><span class='hljl-p'>(</span><span class='hljl-n'>l</span><span class='hljl-oB'>.</span><span class='hljl-n'>α</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>+</span><span class='hljl-t'> </span><span class='hljl-nf'>log</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-oB'>^</span><span class='hljl-ni'>2</span><span class='hljl-p'>)))</span><span class='hljl-t'>
+</span><span class='hljl-nf'>derivative</span><span class='hljl-p'>(</span><span class='hljl-n'>l</span><span class='hljl-oB'>::</span><span class='hljl-n'>LogHuberLoss</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-t'> </span><span class='hljl-oB'>-&gt;</span><span class='hljl-t'> </span><span class='hljl-p'>(</span><span class='hljl-nf'>abs</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>&lt;=</span><span class='hljl-t'> </span><span class='hljl-n'>l</span><span class='hljl-oB'>.</span><span class='hljl-n'>α</span><span class='hljl-t'> </span><span class='hljl-oB'>?</span><span class='hljl-t'> </span><span class='hljl-ni'>2</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-t'> </span><span class='hljl-oB'>:</span><span class='hljl-t'> </span><span class='hljl-ni'>2</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-n'>l</span><span class='hljl-oB'>.</span><span class='hljl-n'>α</span><span class='hljl-oB'>^</span><span class='hljl-ni'>2</span><span class='hljl-t'> </span><span class='hljl-oB'>/</span><span class='hljl-t'> </span><span class='hljl-n'>x</span><span class='hljl-p'>)</span><span class='hljl-t'>
 </span><span class='hljl-p'>;</span>
 </pre>
 
 
 
+<p>We leaverage Julia&#39;s multiple dispatch in the example code above. By defining loss evaluation and gradient methods only for the abstract type <code>Loss</code>, we just have to define the penalty and derivative for each of our specific losses, and the interface of <code>Loss</code> will take care of the rest&#33;</p>
 <h4>&#40;b&#41; Convexity</h4>
 <p>Convexity of a penalty loss function is a significant factor to consider, since if the loss is convex, a numerical iterative method will be able to approximate the optimal solution.</p>
 <p>From the loss functions detailed in the previous section, the square and Huber penalty losses are convex, since their second derivatives are nonnegative. The log Huber loss, however, is not convex, since the second derivative is negative.</p>
@@ -842,12 +845,12 @@ Return the derivative function for the log Huber penalty of a given `α`.
 
 <pre class='hljl'>
 <span class='hljl-cs'># Compute losses</span><span class='hljl-t'>
-</span><span class='hljl-n'>losses</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-p'>[</span><span class='hljl-n'>square_loss</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-nf'>huber_loss</span><span class='hljl-p'>(</span><span class='hljl-ni'>1</span><span class='hljl-p'>),</span><span class='hljl-t'> </span><span class='hljl-nf'>log_huber_loss</span><span class='hljl-p'>(</span><span class='hljl-ni'>1</span><span class='hljl-p'>)]</span><span class='hljl-t'>
+</span><span class='hljl-n'>losses</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-p'>[</span><span class='hljl-nf'>SquareLoss</span><span class='hljl-p'>(),</span><span class='hljl-t'> </span><span class='hljl-nf'>HuberLoss</span><span class='hljl-p'>(</span><span class='hljl-ni'>1</span><span class='hljl-p'>),</span><span class='hljl-t'> </span><span class='hljl-nf'>LogHuberLoss</span><span class='hljl-p'>(</span><span class='hljl-ni'>1</span><span class='hljl-p'>)]</span><span class='hljl-t'>
 </span><span class='hljl-n'>loss_labels</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-p'>[</span><span class='hljl-s'>&quot;Square loss&quot;</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-s'>&quot;Huber loss (α = 1)&quot;</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-s'>&quot;Log Huber loss (α = 1)&quot;</span><span class='hljl-t'> </span><span class='hljl-p'>]</span><span class='hljl-t'>
 </span><span class='hljl-k'>for</span><span class='hljl-t'> </span><span class='hljl-p'>(</span><span class='hljl-n'>label</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>predict</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-kp'>in</span><span class='hljl-t'> </span><span class='hljl-nf'>zip</span><span class='hljl-p'>(</span><span class='hljl-n'>labels</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>predictors</span><span class='hljl-p'>)</span><span class='hljl-t'>
     </span><span class='hljl-nf'>println</span><span class='hljl-p'>(</span><span class='hljl-s'>&quot;For predictor </span><span class='hljl-si'>$label</span><span class='hljl-s'>:&quot;</span><span class='hljl-p'>)</span><span class='hljl-t'>
     </span><span class='hljl-k'>for</span><span class='hljl-t'> </span><span class='hljl-p'>(</span><span class='hljl-n'>loss_label</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>loss</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-kp'>in</span><span class='hljl-t'> </span><span class='hljl-nf'>zip</span><span class='hljl-p'>(</span><span class='hljl-n'>loss_labels</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>losses</span><span class='hljl-p'>)</span><span class='hljl-t'>
-        </span><span class='hljl-nf'>println</span><span class='hljl-p'>(</span><span class='hljl-s'>&quot;</span><span class='hljl-se'>\t</span><span class='hljl-si'>$loss_label</span><span class='hljl-s'>: &quot;</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-nf'>loss</span><span class='hljl-p'>(</span><span class='hljl-nf'>predict</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>-</span><span class='hljl-t'> </span><span class='hljl-n'>y</span><span class='hljl-p'>))</span><span class='hljl-t'>
+        </span><span class='hljl-nf'>println</span><span class='hljl-p'>(</span><span class='hljl-s'>&quot;</span><span class='hljl-se'>\t</span><span class='hljl-si'>$loss_label</span><span class='hljl-s'>: &quot;</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-nf'>loss</span><span class='hljl-p'>(</span><span class='hljl-nf'>predict</span><span class='hljl-p'>(</span><span class='hljl-n'>x</span><span class='hljl-p'>),</span><span class='hljl-t'> </span><span class='hljl-n'>y</span><span class='hljl-p'>))</span><span class='hljl-t'>
     </span><span class='hljl-k'>end</span><span class='hljl-t'>
 </span><span class='hljl-k'>end</span>
 </pre>
@@ -860,11 +863,11 @@ For predictor y &#61; 15.5x &#43; 5.9:
 	Log Huber loss &#40;α &#61; 1&#41;: 3.5245580525625964
 For predictor y &#61; 10x &#43; 6.5:
 	Square loss: 1457.8035920977213
-	Huber loss &#40;α &#61; 1&#41;: 46.54416813926349
+	Huber loss &#40;α &#61; 1&#41;: 46.5441681392635
 	Log Huber loss &#40;α &#61; 1&#41;: 5.217640939359185
 For predictor y &#61; 5x &#43; 7.9:
 	Square loss: 1161.3800368159878
-	Huber loss &#40;α &#61; 1&#41;: 47.131968806100325
+	Huber loss &#40;α &#61; 1&#41;: 47.13196880610032
 	Log Huber loss &#40;α &#61; 1&#41;: 5.954961656093677
 </pre>
 
@@ -893,13 +896,13 @@ Euclidean norm of the gradient is lower than or equal to `ϵ`.
         </span><span class='hljl-n'>iter</span><span class='hljl-t'> </span><span class='hljl-oB'>+=</span><span class='hljl-t'> </span><span class='hljl-ni'>1</span><span class='hljl-t'>
 
         </span><span class='hljl-cs'># Compute loss gradient and break if gradient is small enough</span><span class='hljl-t'>
-        </span><span class='hljl-n'>∇</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>X</span><span class='hljl-oB'>&#39;</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-nf'>grad</span><span class='hljl-p'>(</span><span class='hljl-n'>loss</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>X</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-n'>θ</span><span class='hljl-t'> </span><span class='hljl-oB'>-</span><span class='hljl-t'> </span><span class='hljl-n'>y</span><span class='hljl-p'>)</span><span class='hljl-t'>
+        </span><span class='hljl-n'>∇</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>X</span><span class='hljl-oB'>&#39;</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-nf'>gradient</span><span class='hljl-p'>(</span><span class='hljl-n'>loss</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>X</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-n'>θ</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>y</span><span class='hljl-p'>)</span><span class='hljl-t'>
         </span><span class='hljl-nf'>norm</span><span class='hljl-p'>(</span><span class='hljl-n'>∇</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>≤</span><span class='hljl-t'> </span><span class='hljl-n'>ϵ</span><span class='hljl-t'> </span><span class='hljl-oB'>&amp;&amp;</span><span class='hljl-t'> </span><span class='hljl-k'>break</span><span class='hljl-t'>
 
         </span><span class='hljl-cs'># Iterate to find better θ</span><span class='hljl-t'>
         </span><span class='hljl-k'>while</span><span class='hljl-t'> </span><span class='hljl-kc'>true</span><span class='hljl-t'>
             </span><span class='hljl-n'>tent_θ</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>θ</span><span class='hljl-t'> </span><span class='hljl-oB'>-</span><span class='hljl-t'> </span><span class='hljl-n'>h</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-n'>∇</span><span class='hljl-t'> </span><span class='hljl-cs'># tentative update to θ</span><span class='hljl-t'>
-            </span><span class='hljl-k'>if</span><span class='hljl-t'> </span><span class='hljl-nf'>loss</span><span class='hljl-p'>(</span><span class='hljl-n'>X</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-n'>tent_θ</span><span class='hljl-t'> </span><span class='hljl-oB'>-</span><span class='hljl-t'> </span><span class='hljl-n'>y</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>≤</span><span class='hljl-t'> </span><span class='hljl-nf'>loss</span><span class='hljl-p'>(</span><span class='hljl-n'>X</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-n'>θ</span><span class='hljl-t'> </span><span class='hljl-oB'>-</span><span class='hljl-t'> </span><span class='hljl-n'>y</span><span class='hljl-p'>)</span><span class='hljl-t'>
+            </span><span class='hljl-k'>if</span><span class='hljl-t'> </span><span class='hljl-nf'>loss</span><span class='hljl-p'>(</span><span class='hljl-n'>X</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-n'>tent_θ</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>y</span><span class='hljl-p'>)</span><span class='hljl-t'> </span><span class='hljl-oB'>≤</span><span class='hljl-t'> </span><span class='hljl-nf'>loss</span><span class='hljl-p'>(</span><span class='hljl-n'>X</span><span class='hljl-t'> </span><span class='hljl-oB'>*</span><span class='hljl-t'> </span><span class='hljl-n'>θ</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>y</span><span class='hljl-p'>)</span><span class='hljl-t'>
                 </span><span class='hljl-n'>θ</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-n'>tent_θ</span><span class='hljl-t'>
                 </span><span class='hljl-n'>h</span><span class='hljl-t'> </span><span class='hljl-oB'>*=</span><span class='hljl-t'> </span><span class='hljl-nfB'>1.2</span><span class='hljl-t'>
                 </span><span class='hljl-k'>break</span><span class='hljl-t'>
@@ -950,7 +953,7 @@ Euclidean norm of the gradient is lower than or equal to `ϵ`.
 <span class='hljl-k'>using</span><span class='hljl-t'> </span><span class='hljl-n'>Statistics</span><span class='hljl-oB'>:</span><span class='hljl-t'> </span><span class='hljl-n'>std</span><span class='hljl-t'>
 </span><span class='hljl-nf'>include</span><span class='hljl-p'>(</span><span class='hljl-s'>&quot;./utils/regression.jl&quot;</span><span class='hljl-p'>)</span><span class='hljl-t'>
 
-</span><span class='hljl-n'>loss</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>huber_loss</span><span class='hljl-p'>(</span><span class='hljl-nf'>std</span><span class='hljl-p'>(</span><span class='hljl-n'>y</span><span class='hljl-p'>))</span><span class='hljl-t'>
+</span><span class='hljl-n'>loss</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>HuberLoss</span><span class='hljl-p'>(</span><span class='hljl-nf'>std</span><span class='hljl-p'>(</span><span class='hljl-n'>y</span><span class='hljl-p'>))</span><span class='hljl-t'>
 </span><span class='hljl-n'>affine_X</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>hcat</span><span class='hljl-p'>(</span><span class='hljl-nf'>ones</span><span class='hljl-p'>(</span><span class='hljl-nf'>size</span><span class='hljl-p'>(</span><span class='hljl-n'>X</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-ni'>1</span><span class='hljl-p'>)),</span><span class='hljl-t'> </span><span class='hljl-n'>X</span><span class='hljl-p'>)</span><span class='hljl-t'>
 
 </span><span class='hljl-n'>θ1</span><span class='hljl-t'> </span><span class='hljl-oB'>=</span><span class='hljl-t'> </span><span class='hljl-nf'>GD</span><span class='hljl-p'>(</span><span class='hljl-n'>affine_X</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>y</span><span class='hljl-p'>,</span><span class='hljl-t'> </span><span class='hljl-n'>loss</span><span class='hljl-p'>)</span><span class='hljl-t'>
@@ -963,7 +966,7 @@ Euclidean norm of the gradient is lower than or equal to `ϵ`.
 
 
 <pre class="output">
-θ1 &#61; &#91;5.938925842363004; 99.88646989435894; 74.81704017535684&#93;
+θ1 &#61; &#91;5.938925842314579; 99.88646989439238; 74.81704017517843&#93;
 θ2 &#61; &#91;5.938925834055672, 99.8864698842302, 74.81704019156787&#93;
 </pre>
 
