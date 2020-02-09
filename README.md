@@ -7,6 +7,7 @@ This repository contains my solutions for assignments from Stanford's [EE104: In
 - [Homework 1](https://lhnguyen-vn.github.io/IntroToML/html/hw1.html)
 - [Homework 2](https://lhnguyen-vn.github.io/IntroToML/html/hw2.html)
 - [Homework 3](https://lhnguyen-vn.github.io/IntroToML/html/hw3.html)
+- [Homework 4](https://lhnguyen-vn.github.io/IntroToML/html/hw4.html)
 
 ### Data 
 
@@ -20,3 +21,5 @@ Datasets used for the above solutions are provided in the course's page. They ar
  - [`features.json`](https://lhnguyen-vn.github.io/IntroToML/data/features.json)
  - [`RERM.json`](https://lhnguyen-vn.github.io/IntroToML/data/RERM.json)
  - [`bike.json`](https://lhnguyen-vn.github.io/IntroToML/data/bike.json)
+ - [`loss.json`](https://lhnguyen-vn.github.io/IntroToML/data/loss.json)
+ - [`GD.json`](https://lhnguyen-vn.github.io/IntroToML/data/GD.json)
