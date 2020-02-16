@@ -1,0 +1,320 @@
+---
+title: Homework 5
+author: Long Nguyen
+---
+
+## Stationarity Properties
+
+We discuss the gradient and the proximal gradient methods in this section.
+
+The gradient method's objective is to find the minimizer ``θ`` of a function
+``f``. The traditional solution to this optimization problem is to set the
+partial derivatives of ``f`` with respect to each element in ``θ`` to be ``0``
+and solve the resulting system of equations. However, it is difficult to turn
+such approach into a generalized algorithm. A popular alternative, therefore, is
+to use an iterative approach and approximate the true solution. We find the next
+approximation ``θ^{k+1}`` by making an adjustment ``Δθ`` to ``θ^k`` at each
+iteration. Using Taylor's expansion at ``θ^{k+1}`` gives us the following:
+```math
+f(θ^{k+1}) = f(θ^k + Δk) ≈ f(θ^k) + ∇f(θ^k)^{T}Δθ
+```
+
+In order to make ``θ^{k+1}`` a better approximation, we just need to make the
+second term as negative as possible. This happens when ``Δθ`` is in the opposite
+direction of ``∇f(θ^k)``, since the dot product will then be the most negative.
+However, the linearized approximation only holds for small ``Δθ``, and therefore
+we choose a small learning rate ``h^k`` and make the following update:
+```math
+Δθ = -h^k∇f(θ^k)
+θ^{k+1} = θ^k + Δθ = θ^k - h^k∇f(θ^k).
+```
+This is the algorithm for gradient descent, which we have implemented in the
+last homework.
+
+While gradient descent is a strong tool, it assumes the function ``f`` must be
+differentiable, and therefore cannot be used for functions consisting of some
+non-differentiable parts. The proximal gradient method is then an extension of
+the gradient method for functions in the form ``F(x) = f(x) + g(x)``, where
+``f`` is differentiable but ``g`` is not. We first revisit the gradient method:
+it turns out our solution for ``θ^{k+1}`` is the solution to
+$$
+\begin{align*}
+&\underset{θ}{argmin} \left(f(θ^k) + ∇f(θ^k)^T(θ-θ^k)
+    + \frac{1}{2h^k}||θ-θ^k||^2\right) \\
+= &\underset{θ}{argmin} \left(f(θ^k) + \frac{1}{2h^k}||(θ - θ^k)
+    + h^k∇f(θ^k)||^2 - \frac{h^k}{2}||∇f(θ^k)||^2\right) \\
+= &\underset{θ}{argmin} \left(\frac{1}{2h^k}||(θ - θ^k) + h^k∇f(θ^k)||^2\right)
+\end{align*}.
+$$
+
+Our choice of ``θ^{k+1}`` makes the term ``0``, and thus is the solution. The
+optimization problem for ``F(x)`` can then be written as
+$$
+\begin{align*}
+&\underset{θ}{argmin}\left(F(θ)\right) \\
+= &\underset{θ}{argmin}\left(f(θ) + g(θ)\right) \\
+= &\underset{θ}{argmin}\left(f(θ^k) + ∇f(θ^k)^T(θ-θ^k)
+    + \frac{1}{2h^k}||θ-θ^k||^2 + g(θ)\right) \\
+= &\underset{θ}{argmin}\left(\frac{1}{2h^k}||(θ - θ^k) + h^k∇f(θ^k)||^2
+    + g(θ)\right) \\
+= &\underset{θ}{argmin}\left(\frac{1}{2h^k}||θ - (θ^k - h^k∇f(θ^k))||^2
+    + g(θ)\right)
+\end{align*}.
+$$
+
+If we pick ``θ^{k+1/2}``, an intermediate step from ``θ^k``, to be
+``θ^k - h^k∇f(θ^k)``, then the last step is to find the solution ``θ^{k+1}`` for
+```math
+\underset{θ}{argmin}\left(g(θ) + \frac{1}{2h^k}||θ - θ^{k+1/2}||^2\right).
+```
+
+This is called the proximal operator
+$$
+\textbf{prox}_{g, h}(x) = \underset{θ}{argmin}\left(g(θ) + \frac{1}{2h^k}||θ
+    - x||^2\right),
+$$
+hence the name proximal gradient method.
+
+#### (a) Starionary Point
+
+Stationary point is the point at which the gradient vector ``∇f`` is ``0``. In
+the context of the gradient method, a stationary point is a local minima. While
+the global minima is what we're looking for, we hope that a local minima is a
+good approximation.
+
+At any given iteration, ``θ^k = θ^{k+1}``, then ``θ^k`` is a stationary point,
+where the gradient vector is ``\mathbf{0}``. This is immediately obvious from
+our choice of ``θ^{k+1}``. We can prove this by contradiction: if ``∇f(θ^k)`` is
+not ``\mathbf{0}``, then ``θ^{k+1}`` must be different from ``θ^k``.
+
+#### (b) Fixed Point
+
+A fixed point is where the gradient method stops updating ``θ``, no matter how
+many more iterations. We observe that if ``θ^k`` is stationary, then it will
+also be fixed. This is because ``θ^{k+1} = θ^k``, and therefore ``θ^{k+1}`` will
+also be stationary. By induction, for any ``m`` such that ``m>k``, it is certain
+``θ^m = θ^k``.
+
+#### (c) Stopping Criterion
+
+The stopping criterion for the proximal gradient method is either the maximum
+number of iterations have been reached, or the optimization problem approaches a
+stationary, and hence fixed, point.
+
+Recall that the proximal gradient method's objective is
+```math
+\underset{θ}{argmin} \left(f(θ^k) + \frac{1}{2h^k}||θ - θ^{k+1/2}||^2
+- \frac{h^k}{2}||∇f(θ^k)||^2 + g(θ)\right),
+```
+We then stop if
+$$
+\begin{align*}
+&\frac{1}{2h^k}||θ^{k+1} - θ^{k+1/2}||^2 - \frac{h^k}{2}||∇f(θ^{k+1})||^2 ≈ 0 \\
+⟹ &||θ^{k+1} - θ^{k+1/2}||^2 ≈ ||h^k∇f(θ^{k+1})||^2 \\
+⟹ &||θ^{k+1} - θ^{k+1/2}|| ≈ ||h^k∇f(θ^{k+1})|| \\
+⟹ &||θ^{k+1} - θ^{k+1/2}|| - ||h^k∇f(θ^{k+1})|| ≈ 0.
+\end{align*}
+$$
+
+Since ``||a|| - ||b|| ≤ ||a - b||``, we can stop our algorithm when
+$$
+\begin{align*}
+||θ^{k+1} - θ^{k+1/2} - h^k∇f(θ^{k+1})|| &≈ 0 \\
+||∇f(θ^{k+1}) - \frac{θ^{k+1} - θ^{k+1/2}}{h^k}|| &≈ 0 \\
+||∇f(θ^{k+1}) - \frac{θ^{k+1} - θ^{k+1/2}}{h^k}|| &≤ ϵ.
+\end{align*}
+$$
+
+#### (d) Stationary Point for Proximal Gradient Method
+
+We will prove that if ``θ^k = θ^{k+1}``, then ``θ^k`` is stationary. In other
+words,
+$$∇f(θ^{k+1}) = \frac{θ^{k+1} - θ^{k+1/2}}{h^k}$$
+
+This is easy to see:
+
+$$
+\begin{align*}
+θ^k &= θ^{k+1} \\
+∇f(θ^k) &= ∇f(θ^{k+1}) \\
+h^k∇f(θ^k) &= h^k∇f(θ^{k+1}) \\
+θ^k - θ^{k+1/2} &= h^k∇f(θ^{k+1}) \\
+θ^{k+1} - θ^{k+1/2} &= h^k∇f(θ^{k+1}) \\
+\frac{θ^{k+1} - θ^{k+1/2}}{h^k} &= ∇f(θ^{k+1})
+\end{align*}
+$$
+
+## 2. Introduction to Flux.jl
+
+We dive into `Julia`'s deep learning framework, `Flux.jl`, in this section.
+
+#### (a) The Dataset
+
+Let's load the sample dataset `flux.json` for our example.
+
+```julia
+include("./utils/readclassjson.jl") # read json dataset
+include("./utils/validation.jl") # split dataset and validation functions
+
+data = readclassjson("./data/flux.json")
+X = data["X"]
+y = data["y"]
+
+train_set, test_set = split_dataset(X, y)
+train_X, train_y = train_set.input, train_set.output
+test_X, test_y = test_set.input, test_set.output;
+```
+
+#### (b) Affine Predictor
+
+A `Flux` model needs an objective function, a dataset, and an optimizer to
+update the model. Let's define all required components and train our model.
+
+```julia
+using Flux
+
+# Training model
+model = Dense(2, 1)
+ps = Flux.params(model)
+
+# Mean square error loss function
+loss(X, y) = Flux.mse(model(X), y)
+
+# Gradient descent optimizer
+opt = Descent(0.5)
+
+# Prepare data
+dataset = [(train_X', train_y')]
+
+# Training loop: 1000 epochs
+Flux.@epochs 1000 Flux.train!(loss, ps, dataset, opt);
+
+# Accuracy on test set
+test_error = loss(test_X', test_y') |> sqrt
+println("Root-mean-squared error for test set: $test_error");
+```
+
+#### (c) Comparison with Regression
+
+Since our model is a simple affine predictor from ``\mathbb{R}^3`` to
+``\mathbb{R}``, regression would give us the true solution. To see whether our
+`Flux` model performs well, we will compare its result with affine regression.
+
+```julia; hold=true
+include("./utils/regression.jl") # regression functions
+
+affine_X = hcat(train_X, ones(size(train_X, 1)))
+θ, _, error= find_theta(affine_X, train_y)
+println("Regression result:")
+println("\tθ = $θ")
+println("\tRoot-mean-square error: $error")
+
+println("Gradient descent result:")
+println("\tθ = $ps")
+println("\tRoot-mean-square error: $(loss(train_X', train_y') |> sqrt)");
+```
+
+We can see that the result is essentially identical!
+
+#### Visualization
+
+In this section, we will plot the sample and the model to visualize our `Flux`
+predictor.
+
+```julia
+using Plots
+
+xgrid = range(minimum(X[:, 1]), maximum(X[:, 1]), length=100)
+ygrid = range(minimum(X[:, 2]), maximum(X[:, 2]), length=100)
+mean_y = model([mean(xgrid), mean(ygrid)])[1]
+plot(xgrid, ygrid, (x, y) -> model([x, y])[1],
+      st=:surface, label="")
+scatter!(X[:, 1], X[:, 2], y, label="",
+         marker_z=(x,y,z) -> (z - mean_y), c=:inferno)
+```
+
+## 3. Introduction to Classification
+
+We explore boolean classification on the dataset `boolean_classification.json`
+in this section.
+
+#### (a) Data Visualization
+
+```julia
+data = readclassjson("./data/boolean_classification.json")
+X = data["X"]
+y = data["y"]
+y = 2*y .- 1 # Makes {0, 1} labels to {-1, 1}
+
+class_one = (y .== 1)
+class_two = .!class_one
+scatter(X[class_one, 1], X[class_one, 2], label="")
+scatter!(X[class_two, 1], X[class_two, 2], label="")
+```
+
+#### (b) Affine Regression
+
+We first use least squares regression with affine embedding on the inputs.
+
+```julia
+affine_X = hcat(ones(size(X, 1)), X)
+θ, _, error = find_theta(affine_X, y)
+println("Regression RMSE: $error")
+```
+
+#### (c) Predictor Visualization
+
+```julia
+xgrid = range(extrema(X[:, 1])..., length=500)
+ygrid = range(extrema(X[:, 2])..., length=500)
+
+# Predict labels
+function regression(x, y)
+    ŷ = [1, x, y]' * θ
+    label = ŷ ≥ 0 ? 1.0 : -1.0
+end
+
+# Plotting
+function plot_predictor(predictor, title)
+    points = Iterators.product(xgrid, ygrid)
+    xs = [point[1] for point in points]
+    ys = [point[2] for point in points]
+    labels = [predictor(x, y) for (x, y) in zip(xs, ys)]
+    colors = [label .== 1.0 ? :blue : :red for label in labels]
+    scatter(xs, ys, label="", alpha=0.025, c=colors, msw=0)
+    scatter!(X[class_one, 1], X[class_one, 2], label="", c=:blue)
+    scatter!(X[class_two, 1], X[class_two, 2], label="", c=:red)
+    plot!(title=title)
+end
+plot_predictor(regression, "Regression Classification")
+```
+
+#### (d) Nearest Neighbor
+
+Nearest neighbor is an alternative model to least squares. However, we run the
+risk of overfitting our dataset and thus the model would not generalize well for
+unseen data.
+
+```julia
+include("./utils/nearestneighbor.jl")
+
+# Nearest neighbor predictor
+nn_predict = (_x, _y) -> nn_predictor([_x, _y], X, y)
+
+# Plotting
+plot_predictor(nn_predict, "Nearest Neighbor Classification")
+```
+
+For the model to generalize better, we could instead use the k-nearest-neighbor
+algorithm. Below, we see an example with `k = 2`.
+
+```julia
+# k-nearest neighbor predictor
+function knn_predict(_x, _y)
+    ŷ = knn_predictor([_x, _y], X, y, 2)
+    label = ŷ ≥ 0 ? 1.0 : -1.0
+end
+
+# Plotting
+plot_predictor(knn_predict, "k-Nearest Neighbor Classification")
+```

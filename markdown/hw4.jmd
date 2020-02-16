@@ -90,7 +90,7 @@ abstract type Loss end
 # Useful error messages if required methods are not specified
 penalty(l::Loss) = error("No `penalty` method defined for type $(typeof(l)).")
 derivative(l::Loss) =
-    error("No `gradient` method defined for type $(typeof(l)).")
+    error("No `derivative` method defined for type $(typeof(l)).")
 
 # Loss objective evaluation
 """
