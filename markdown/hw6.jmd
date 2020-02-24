@@ -1,0 +1,229 @@
+---
+title: Homework 6
+author: Long Nguyen
+---
+
+## 1. Multi-class Animal Classification
+
+#### (a) Multiclass Logistic Loss with Flux
+
+We attempt to create a multi-class predictor in this section, specifically to
+classify an animal based on 16 different traits. We will phrase our problem in
+Flux and use a custom multi-class logistic loss function.
+
+```julia
+using Flux
+using StatsBase: norm, mean
+include("./utils/readclassjson.jl")
+include("./utils/validation.jl")
+
+### Load data
+data = readclassjson("./data/zoo.json")
+X = data["X"]
+y = data["y"]
+
+### Prepare train set and test set
+train_set, test_set = split_dataset(X, y, 0.9)
+train_X, train_y = train_set.input, train_set.output
+test_X, test_y = test_set.input, test_set.output
+
+### Embeddings
+
+# Classes
+classes = unique(y) |> sort!
+
+# Turn label vector to one-hot matrix
+function onehot(y, classes)
+    output = zeros(eltype(y), length(classes), length(y))
+    for (i, _y) in enumerate(y)
+        class = findfirst(isequal(_y), classes)
+        output[class, i] = one(eltype(y))
+    end
+    output
+end
+
+# One-hot classes
+ψs = [onehot(class, classes) |> vec for class in classes]
+
+# Prepare input and output
+input = train_X'
+output = onehot(train_y, classes)
+dataset = [(input, output)]
+
+test_input = test_X'
+test_output = onehot(test_y, classes)
+
+### Model
+model = Chain(
+    Dense(16, length(classes)),
+    softmax)
+ps = Flux.params(model)
+
+### Logistic loss
+# Negative margin function
+function M(ŷ, ψⱼ, ψᵢ)
+    ψⱼ == ψᵢ ? 0 : (norm(ŷ - ψⱼ)^2 - norm(ŷ - ψᵢ)^2) / (2norm(ψᵢ - ψⱼ))
+end
+
+# Loss between vectors
+loss(x, y) = log(sum(M(model(x), y, ψᵢ) |> exp for ψᵢ in ψs))
+
+# Loss between matrices
+Loss(X, Y) = mean(loss(x, y) for (x, y) in zip(eachcol(X), eachcol(Y)))
+
+### Optimizer
+opt = ADAM(0.005)
+
+### Accuracy
+ψ(ŷ) = ψs[argmax(ŷ)]
+accuracy(X, Y) = mean(ψ(model(x)) == y
+                      for (x, y) in zip(eachcol(X), eachcol(Y))) * 100
+
+### Callback after each epoch for visualization
+train_losses = Float64[]
+test_losses = Float64[]
+train_accs = Float64[]
+test_accs = Float64[]
+cb = () -> begin
+    push!(train_losses, Loss(input, output))
+    push!(test_losses, Loss(test_input, test_output))
+    push!(train_accs, accuracy(input, output))
+    push!(test_accs, accuracy(test_input, test_output))
+end;
+```
+
+#### (b) Training
+
+```julia; hold=true
+using Plots
+
+Flux.@epochs 200 Flux.train!(Loss, ps, dataset, opt, cb=cb)
+pl1 = plot([train_losses test_losses], label=["Train Loss" "Test Loss"],
+           ylabel="Loss", xlabel="Epoch", legend=:topright)
+pl2 = plot([train_accs test_accs], label=["Train Accuracy" "Test Accuracy"],
+           ylabel="Percentage", xlabel="Epoch", legend=:bottomright)
+plot(pl1, pl2, size=(800, 400))
+```
+
+## 2. Classification of Political Speeches
+
+```julia
+data = readclassjson("./data/speeches.json")
+U = data["U"]
+V = data["V"];
+```
+
+#### (a) Pre-processing Corpus
+
+We first remove all punctuations and make the entire corpus lowercase.
+
+```julia
+function preprocess(corpus)
+    p_corpus = Vector{Vector{String}}() # preprocessed corpus
+    words = Set(String[]) # unique words
+    for speech in corpus
+        # Remove punctuations and make speech lowercase
+        p_speech = replace(speech, r"[^\w\s]" => "") |> lowercase
+        p_words = split(p_speech, r"\s+")
+        push!(p_corpus, p_words)
+        # Add to set new words
+        union!(words, p_words)
+    end
+    p_corpus, words
+end
+```
+
+#### (b) Term Frequency - Inverse Document Frequency Embeddding
+
+```julia
+# Term frequency embedding
+tf(speech, word) = count(w -> w == word, speech) / length(speech)
+
+# TF-IDF embedding
+idf(tf_corpus) = log(1 + length(tf_corpus) / sum(tf_corpus .> 0))
+
+# Output embedding
+embed_label(p) = (p == "D" ? 1f0 : -1f0)
+
+# Embedding for entire corpus
+function embed_input(corpus, parties)
+    # Corpus preprocessing
+    p_corpus, words = preprocess(corpus)
+
+    # Input and output
+    X = Matrix{Float32}(undef, length(corpus), length(words))
+    Y = embed_label.(parties)
+
+    # TF-IDF embedding
+    for (i, word) in enumerate(words)
+        # Term frequency for each speech in corpus
+        tf_corpus = tf.(p_corpus, word)
+        # Tf-idf for corpus wrt word
+        X[:, i] = tf_corpus * idf(tf_corpus)
+    end
+
+    return hcat(ones(Float32, length(p_corpus)), X), Y
+end
+```
+
+#### (c) Hubristic Loss
+
+```julia
+### Hubristic Loss function
+function _hub_loss(ŷ)
+    ŷ < -1 && return 0f0
+    -1 < ŷ ≤ 0 && return (ŷ + 1)^2
+    return 1 + 2ŷ
+end
+
+hub_loss(ŷ, y) = (y == -1 ? _hub_loss(ŷ) : _hub_loss(-ŷ))
+
+Hub_Loss(X, Y) = mean(hub_loss.(model(X), Y))
+
+### Input and output
+X, Y = embed_input(U, V)
+
+### Model
+model = Chain(
+    Dense(size(X, 2), 1)
+)
+ps = Flux.params(model)
+
+### Optimizer
+opt = ADAM();
+```
+
+#### (d) Training
+
+```julia
+### Prepare dataset
+train_set, test_set = split_dataset(X, Y)
+train_X, train_Y = train_set.input', train_set.output'
+test_X, test_Y = test_set.input', test_set.output'
+dataset = [(train_X, train_Y)]
+
+### Losses and Accuracies
+train_losses = Float64[]
+test_losses = Float64[]
+
+predict(ŷ) = ŷ > 0 ? 1f0 : -1f0
+accuracy(Ŷ, Y) = mean(predict.(Ŷ) .== Y)
+train_accs = Float64[]
+test_accs = Float64[]
+
+### Callback to report losses and accuracies
+cb = () -> begin
+    push!(train_losses, Hub_Loss(train_X, train_Y))
+    push!(test_losses, Hub_Loss(test_X, test_Y))
+    push!(train_accs, accuracy(model(train_X), train_Y))
+    push!(test_accs, accuracy(model(test_X), test_Y))
+end
+
+# Training
+Flux.@epochs 100 Flux.train!(Hub_Loss, ps, dataset, opt, cb=cb)
+pl1 = plot([train_losses test_losses], label=["Train Loss" "Test Loss"],
+           ylabel="Loss", xlabel="Epoch", legend=:topright)
+pl2 = plot([train_accs test_accs], label=["Train Accuracy" "Test Accuracy"],
+           ylabel="Percentage", xlabel="Epoch", legend=:bottomright)
+plot(pl1, pl2, size=(800, 400))
+```
