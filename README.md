@@ -9,6 +9,7 @@ This repository contains my solutions for assignments from Stanford's [EE104: In
 - [Homework 3](https://lhnguyen-vn.github.io/IntroToML/html/hw3.html)
 - [Homework 4](https://lhnguyen-vn.github.io/IntroToML/html/hw4.html)
 - [Homework 5](https://lhnguyen-vn.github.io/IntroToML/html/hw5.html)
+- [Homework 6](https://lhnguyen-vn.github.io/IntroToML/html/hw6.html)
 
 ### Data 
 
@@ -26,3 +27,5 @@ Datasets used for the above solutions are provided in the course's page. They ar
  - [`GD.json`](https://lhnguyen-vn.github.io/IntroToML/data/GD.json)
  - [`flux.json`](https://lhnguyen-vn.github.io/IntroToML/data/flux.json)
  - [`boolean_classification.json`](https://lhnguyen-vn.github.io/IntroToML/data/boolean_classification.json)
+ - [`zoo.json`](https://lhnguyen-vn.github.io/IntroToML/data/zoo.json)
+ - [`speeches.json`](https://lhnguyen-vn.github.io/IntroToML/data/speeches.json)
