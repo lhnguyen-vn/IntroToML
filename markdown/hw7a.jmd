@@ -1,0 +1,112 @@
+---
+title: Homework 7a
+author: Long Nguyen
+---
+
+## Introduction to Neural Networks
+
+In this section, we take our first look into neural networks and how they could
+improve training by better approximating non-linear mappings. We will run our
+experiments on the data from the `intro_nn.json` dataset.
+
+#### (a) The Dataset
+
+```julia
+using Plots
+include("./utils/readclassjson.jl")
+
+data = readclassjson("./data/intro_nn.json")
+X = data["X"]
+y = data["y"] * 2 .- 1
+colors = [yᵢ == 1 ? :blue : :red for yᵢ in y]
+
+scatter(X[:, 1], X[:, 2], c=colors, label="")
+```
+
+#### (b) Boolean Predictor
+
+We first use a simple predictor to make the input as close to the labeled output
+as possible.
+
+```julia; hold=true
+using Flux
+using Statistics: mean
+include("./utils/validation.jl")
+
+# Prepare train and test set
+train_set, test_set = split_dataset(X, y)
+train_X, train_y = train_set.input', train_set.output'
+test_X, test_y = test_set.input', test_set.output'
+
+# Affine model
+model = Dense(2, 1)
+ps = Flux.params(model)
+
+# Logistic loss
+loss(ŷ, y) = (y == 1.0 ? 2 * log(1 + exp(-ŷ)) : log(1 + exp(ŷ)))
+Loss(X, y) = mean(loss.(model(X), y))
+
+# Optimizer
+opt = ADAM()
+
+# Callback - shuffle dataset each epoch
+function shuffle!(dataset)
+    rand_idxs = randperm(length(dataset))
+    dataset .= dataset[rand_idxs]
+end
+dataset = collect(zip(eachcol(train_X), train_y)) |> shuffle!
+cb = () -> shuffle!(dataset)
+
+# Accuracy
+ψ(ŷ) = ŷ ≥ 0 ? 1.0 : -1.0
+accuracy(X, y, model=model) = mean(ψ.(model(X)) .== y)
+
+# Training
+Flux.@epochs 300 Flux.train!(Loss, ps, dataset, opt, cb=cb)
+
+# Report loss and accuracy
+train_loss = Loss(train_X, train_y)
+test_loss = Loss(test_X, test_y)
+train_acc = accuracy(train_X, train_y)
+test_acc = accuracy(test_X, test_y)
+println("Train set:\n\tLoss: $train_loss\n\tAccuracy: $train_acc")
+println("Test set:\n\tLoss: $test_loss\n\tAccuracy: $test_acc")
+```
+
+The accuracy is just about average. We could definitely do better!
+
+#### (c) Neural Network
+
+We now implement a simple neural network in the hope that it could better fit
+a non-linear predictor.
+
+```julia; hold=true
+# Neural network model
+neural_model = Chain(
+  Dense(2, 4, relu),
+  Dense(4, 2, relu),
+  Dense(2, 1))
+ps = Flux.params(neural_model)
+
+# Losgistic loss
+neural_loss(X, y) = mean(loss.(neural_model(X), y))
+
+# Optimizer
+opt = ADAM()
+
+# Callback
+cb = () -> shuffle!(dataset)
+
+# Training
+Flux.@epochs 300 Flux.train!(neural_loss, ps, shuffle!(dataset), opt, cb=cb)
+
+# Report loss and accuracy
+train_loss = neural_loss(train_X, train_y)
+test_loss = neural_loss(test_X, test_y)
+train_acc = accuracy(train_X, train_y, neural_model)
+test_acc = accuracy(test_X, test_y, neural_model)
+println("Train set:\n\tLoss: $train_loss\n\tAccuracy: $train_acc")
+println("Test set:\n\tLoss: $test_loss\n\tAccuracy: $test_acc")
+```
+
+We almost get every single point classified correct!
