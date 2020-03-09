@@ -10,7 +10,7 @@ This repository contains my solutions for assignments from Stanford's [EE104: In
 - [Homework 4](https://lhnguyen-vn.github.io/IntroToML/html/hw4.html)
 - [Homework 5](https://lhnguyen-vn.github.io/IntroToML/html/hw5.html)
 - [Homework 6](https://lhnguyen-vn.github.io/IntroToML/html/hw6.html)
-- [Homework 7a](https://lhnguyen-vn.github.io/IntroToML/data/hw7a.html)
+- [Homework 7a](https://lhnguyen-vn.github.io/IntroToML/html/hw7a.html)
 
 ### Data 
 
